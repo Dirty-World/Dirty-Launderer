@@ -36,23 +36,28 @@ dirty-launderer/
 ├── README.md
 ```
 
-> 📝 **Note**: Infrastructure code (Terraform) has been moved to a [separate repository](https://github.com/Dirty-World/dirty-launderer-infra) for better maintainability and security.
+> 📝 **Note**: Infrastructure code has been moved to a [separate repository](https://github.com/Dirty-World/dirty-launderer-infra) for better maintainability and security.
 
 ## 🚀 Deployment
 
 1. **Add secrets to GitHub**:
-    - `GCP_CREDENTIALS`
-    - `GCP_PROJECT_ID`
-    - `TELEGRAM_BOT_TOKEN`
-    - `ADMIN_CHAT_ID`
-    - `GCS_BUCKET_NAME`
+    - `GCP_CREDENTIALS` - Google Cloud service account key
+    - `GCP_PROJECT_ID` - Google Cloud project ID
+    - `TELEGRAM_BOT_TOKEN` - Telegram bot token from BotFather
+    - `ADMIN_CHAT_ID` - Telegram chat ID for admin notifications
+    - `GCS_BUCKET_NAME` - Google Cloud Storage bucket for artifacts
 
 2. **Push to main branch** → GitHub Actions will:
-    - Zip bot/
-    - Upload to GCS
-    - Trigger infrastructure deployment
+    - Run tests
+    - Build and zip bot code
+    - Upload to Google Cloud Storage
+    - Trigger infrastructure deployment via repository dispatch
 
-3. **Webhook is auto-registered via post_apply.sh or Cloud Function**
+3. **Infrastructure deployment** will:
+    - Update Cloud Functions
+    - Configure Firestore
+    - Set up monitoring and logging
+    - Register webhook with Telegram
 
 ## 🤖 Telegram Commands
 
@@ -79,113 +84,3 @@ commands - Show a full list of bot commands
 ## 💬 Credits
 
 Made by [you], deployed serverlessly on GCP.
-
-# Dirty Launderer Infrastructure 🏗️
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
-This repository contains the infrastructure as code (IaC) for the [Dirty Launderer](https://github.com/Dirty-World/dirty-launderer) project. It uses Terraform to manage cloud resources on Google Cloud Platform.
-
-## 🏛️ Architecture
-
-The infrastructure consists of:
-- Google Cloud Functions for the bot
-- Cloud Firestore for state management
-- Cloud Scheduler for health checks
-- IAM roles and service accounts
-- Cloud Monitoring and Logging
-- GitHub Actions integration
-
-## 📁 Repository Structure
-
-```
-terraform/
-├── bootstrap/           # Bootstrap configuration
-│   ├── main.tf         # Initial setup (GCS, service accounts)
-│   ├── outputs.tf      # Bootstrap outputs
-│   └── variables.tf    # Bootstrap variables
-├── main.tf             # Main infrastructure
-├── apis.tf             # Required GCP APIs
-├── budget.tf           # Cost management
-├── github.tf           # GitHub integration
-├── variables.tf        # Common variables
-└── tests/              # Infrastructure tests
-```
-
-## 🚀 Prerequisites
-
-- Terraform >= 1.0.0
-- Google Cloud SDK
-- Access to the GCP project
-- GitHub repository access
-
-## 🛠️ Setup
-
-1. Install required tools:
-   ```bash
-   # Install Terraform
-   choco install terraform    # Windows
-   brew install terraform     # macOS
-   
-   # Install Google Cloud SDK
-   # Follow: https://cloud.google.com/sdk/docs/install
-   ```
-
-2. Authenticate with Google Cloud:
-   ```bash
-   gcloud auth application-default login
-   ```
-
-3. Initialize Terraform:
-   ```bash
-   cd terraform
-   terraform init
-   ```
-
-## 🎯 Usage
-
-1. Plan changes:
-   ```bash
-   terraform plan
-   ```
-
-2. Apply changes:
-   ```bash
-   terraform apply
-   ```
-
-3. Run tests:
-   ```bash
-   cd tests
-   python -m pytest test_infrastructure.py
-   ```
-
-## ⚙️ Configuration
-
-Key configuration files:
-- `terraform.tfvars` - Environment-specific values
-- `variables.tf` - Variable definitions
-- `.terraform.lock.hcl` - Provider version locks
-
-## 🔒 Security Notes
-
-- State files are stored remotely in GCS bucket
-- Sensitive values should be passed via GitHub Secrets
-- Use workspaces for different environments
-- Follow least privilege principle for IAM roles
-
-## 🤝 Contributing
-
-1. Create a new branch
-2. Make your changes
-3. Run `terraform fmt` and `terraform validate`
-4. Run the test suite
-5. Submit a pull request
-
-## 📝 Important Notes
-
-- Always review the plan before applying changes
-- Use workspaces for different environments if needed
-- Run `terraform fmt` before committing changes
-- Keep provider versions locked
-- Monitor costs via budget alerts

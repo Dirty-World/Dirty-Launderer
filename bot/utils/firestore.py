@@ -1,5 +1,5 @@
 # firestore.py
-# Firestore backend for The Dirty Launderer🧼 bot
+# Firestore backend for The Dirty Launderer bot
 # Uses consistent naming conventions for collections and global config
 
 from google.cloud import firestore

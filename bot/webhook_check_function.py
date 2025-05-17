@@ -25,7 +25,7 @@ def send_alert(message):
             f"https://api.telegram.org/bot{os.environ['TELEGRAM_TOKEN']}/sendMessage",
             data={
                 "chat_id": os.environ["ALERT_CHAT_ID"],
-                "text": f"🚨 [The Dirty Launderer🧼 Webhook] {message}",
+                "text": f"[The Dirty Launderer Webhook] {message}",
             },
             timeout=10
         )
@@ -84,11 +84,11 @@ def main(request):
     except requests.exceptions.RequestException as e:
         error_msg = f"HTTP error: {type(e).__name__}"
         logger.error(error_msg)
-        send_alert(f"❌ {error_msg}")
+        send_alert(f"Error: {error_msg}")
         return {"error": error_msg}, 500
 
     except Exception as e:
         error_msg = f"Unexpected error: {type(e).__name__}"
         logger.error(error_msg)
-        send_alert(f"❌ {error_msg}")
+        send_alert(f"Error: {error_msg}")
         return {"error": error_msg}, 500 

@@ -62,10 +62,15 @@ jobs:
       env:
         GCS_BUCKET_NAME: ${{ secrets.GCS_BUCKET_NAME }}
 
+    - name: Get GitHub Token from Secret Manager
+      id: get-token
+      run: |
+        echo "GITHUB_TOKEN=$(gcloud secrets versions access latest --secret=GITHUB_TOKEN)" >> $GITHUB_ENV
+
     - name: Trigger Infrastructure Deployment
       uses: peter-evans/repository-dispatch@v2
       with:
-        token: ${{ secrets.GH_PAT }}
+        token: ${{ env.GITHUB_TOKEN }}
         repository: Dirty-World/dirty-launderer-infra
         event-type: deploy-infrastructure
         client-payload: |

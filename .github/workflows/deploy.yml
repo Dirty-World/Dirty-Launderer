@@ -1,0 +1,77 @@
+name: Deploy Dirty Launderer Bot to GCP
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Cache Python dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Zip bot source code
+      run: |
+        mkdir -p dist
+        cd bot && zip -r ../dist/bot-source.zip .
+
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v1
+      with:
+        workload_identity_provider: "projects/60107979354/locations/global/workloadIdentityPools/github-actions-pool/providers/github-actions-provider"
+        service_account: "github-deployer@the-dirty-launderer.iam.gserviceaccount.com"
+
+    - name: Set up gcloud CLI
+      uses: google-github-actions/setup-gcloud@v1
+      with:
+        project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+    - name: Upload bot source to GCS
+      run: gsutil cp dist/bot-source.zip gs://$GCS_BUCKET_NAME/
+      env:
+        GCS_BUCKET_NAME: ${{ secrets.GCS_BUCKET_NAME }}
+
+    - name: Install Terraform
+      uses: hashicorp/setup-terraform@v2
+      with:
+        terraform_version: 1.5.7
+
+    - name: Validate Terraform
+      working-directory: terraform
+      run: terraform validate
+
+    - name: Deploy Terraform
+      working-directory: terraform
+      env:
+        GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+        GCS_BUCKET_NAME: ${{ secrets.GCS_BUCKET_NAME }}
+      run: |
+        terraform init
+        terraform apply -auto-approve \
+          -var="project_id=$GCP_PROJECT_ID" \
+          -var="source_archive=dist/bot-source.zip" \
+          -var="GCS_BUCKET_NAME=$GCS_BUCKET_NAME"
+
+    - name: Notify on Failure
+      if: failure()
+      run: echo "Deployment failed. Please check the logs."

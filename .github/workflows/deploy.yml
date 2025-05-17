@@ -65,6 +65,23 @@ jobs:
       working-directory: terraform
       run: terraform validate
 
+    - name: Import existing resources
+      working-directory: terraform
+      run: |
+        # Remove resources from state if they exist
+        terraform state rm google_pubsub_topic.budget_alert_topic || true
+        terraform state rm google_pubsub_topic.budget_alert_topic_main || true
+        terraform state rm google_cloudfunctions2_function.github_proxy_sync || true
+        terraform state rm google_cloudfunctions_function.dirty_launderer_bot || true
+        terraform state rm google_iam_workload_identity_pool.github_pool || true
+        
+        # Import existing resources
+        terraform import google_pubsub_topic.budget_alert_topic projects/the-dirty-launderer/topics/dev-budget-alert-topic || true
+        terraform import google_pubsub_topic.budget_alert_topic_main projects/the-dirty-launderer/topics/budget-alert-topic-main || true
+        terraform import google_cloudfunctions2_function.github_proxy_sync projects/the-dirty-launderer/locations/us-central1/functions/github-proxy-sync || true
+        terraform import google_cloudfunctions_function.dirty_launderer_bot projects/the-dirty-launderer/locations/us-central1/functions/dirty-launderer-bot || true
+        terraform import google_iam_workload_identity_pool.github_pool projects/the-dirty-launderer/locations/global/workloadIdentityPools/github-actions-pool || true
+
     - name: Deploy Terraform
       working-directory: terraform
       env:

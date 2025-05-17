@@ -1,5 +1,6 @@
 name: Deploy Dirty Launderer Bot to GCP
 
+# Trigger deployment on push to main or manual workflow_dispatch
 on:
   push:
     branches: [ main ]

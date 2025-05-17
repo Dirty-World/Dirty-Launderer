@@ -69,9 +69,13 @@ jobs:
         # Import existing resources (skipping remove since there's no state yet)
         terraform import google_pubsub_topic.budget_alert_topic projects/the-dirty-launderer/topics/dev-budget-alert-topic || true
         terraform import google_pubsub_topic.budget_alert_topic_main projects/the-dirty-launderer/topics/budget-alert-topic-main || true
-        terraform import google_cloudfunctions2_function.github_proxy_sync projects/the-dirty-launderer/locations/us-central1/functions/github-proxy-sync || true
+        # terraform import google_cloudfunctions2_function.github_proxy_sync projects/the-dirty-launderer/locations/us-central1/functions/github-proxy-sync || true
         terraform import google_cloudfunctions_function.dirty_launderer_bot projects/the-dirty-launderer/locations/us-central1/functions/dirty-launderer-bot || true
         terraform import google_iam_workload_identity_pool.github_pool projects/the-dirty-launderer/locations/global/workloadIdentityPools/github-actions-pool || true
+        # Import existing resources if they exist
+        terraform import google_pubsub_subscription.shutdown_trigger_sub projects/the-dirty-launderer/subscriptions/dev-budget-trigger-sub || true
+        terraform import google_pubsub_subscription.budget_alert_subscription_main projects/the-dirty-launderer/subscriptions/budget-alert-subscription-main || true
+        terraform import google_cloudfunctions_function.budget_alert_function projects/the-dirty-launderer/locations/us-central1/functions/budget-alert-function || true
 
     - name: Deploy Terraform
       working-directory: terraform

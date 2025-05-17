@@ -14,13 +14,13 @@ logging.basicConfig(level=logging.ERROR)
 # Cache for proxies to avoid repeated file reads
 _cached_proxies = None
 
-def get_proxy_instance(service, proxies_file="proxies_validated.json"):
+def get_proxy_instance(service, proxies_file="config/proxies.json"):
     """
     Selects a random proxy instance for the given service.
 
     Args:
         service (str): The name of the service (e.g., "nitter", "invidious").
-        proxies_file (str): The name of the proxies file (default: "proxies_validated.json").
+        proxies_file (str): The name of the proxies file (default: "config/proxies.json").
 
     Returns:
         str: A random proxy URL for the service, or None if no proxies are available.

@@ -101,7 +101,7 @@ def privacy_command(update, context):
             return
 
         privacy_text = (
-            "🔒 *Privacy Policy*\n\n"
+            "🔒 *The Dirty Launderer🧼 Privacy Policy*\n\n"
             "• We do not store any personal data\n"
             "• Messages are processed in memory only\n"
             "• URLs are cleaned of tracking parameters\n"
@@ -145,8 +145,8 @@ def start(update, context):
 
         logger.info(f"Command: start, User: {user_hash}")
         msg = update.message.reply_text(
-            'Hi! I am the Dirty Launderer bot. Send me a URL and I will clean it for you.\n'
-            'Use /privacy to see our privacy policy.'
+            'Hi! I am The Dirty Launderer🧼 bot. Send me a URL and I will clean it for you.\n'
+            'Use /help to see available commands.'
         )
         context.job_queue.run_once(
             lambda _: delete_message_after_delay(context, update.message.chat_id, msg.message_id),
@@ -164,11 +164,13 @@ def help_command(update, context):
 
         logger.info(f"Command: help, User: {user_hash}")
         msg = update.message.reply_text(
-            'Send me any URL and I will remove tracking parameters and proxy it through privacy-friendly frontends.\n'
+            'The Dirty Launderer🧼 is here to help!\n\n'
+            'Send me any URL and I will remove tracking parameters and proxy it through privacy-friendly frontends.\n\n'
             'Commands:\n'
             '/privacy - View privacy policy\n'
             '/delete - Delete messages\n'
-            '/help - Show this help'
+            '/help - Show this help\n\n'
+            'Made with 🧼 by The Dirty Launderer🧼 team'
         )
         context.job_queue.run_once(
             lambda _: delete_message_after_delay(context, update.message.chat_id, msg.message_id),

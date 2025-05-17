@@ -3,6 +3,10 @@ from google.cloud import secretmanager
 import requests
 import time
 import json
+import os
+import pytest
+from unittest.mock import patch, MagicMock
+from main import process_message
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

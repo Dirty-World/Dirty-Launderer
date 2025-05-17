@@ -1,9 +1,9 @@
 from telegram import Update
 from telegram.ext import CallbackContext
 
-def commands(update: Update, context: CallbackContext) -> None:
-    """Send the command reference to the user."""
-    message = """📖 Dirty Launderer Command Reference
+def show_commands(update: Update, context: CallbackContext) -> None:
+    """Show all available commands."""
+    message = """📖 The Dirty Launderer🧼 Command Reference
 
 🔧 Admin Controls:
 /setdomain - Set handling for a specific domain
@@ -22,6 +22,8 @@ def commands(update: Update, context: CallbackContext) -> None:
 /proxies - Show count of active proxy frontends
 /ping - Basic bot ping
 /welcome - Show welcome/help message
+
+Made with 🧼 by The Dirty Launderer🧼 team
 """
     # Ensure no identifiable information is logged
     update.message.reply_text(message)

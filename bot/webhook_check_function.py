@@ -18,22 +18,17 @@ def is_valid_url(url):
     except:
         return False
 
-def send_alert(token, chat_id, message):
+def send_alert(message):
     """Send alert to admin chat."""
-    if not chat_id:
-        logger.warning("ALERT_CHAT_ID not set. Alert not sent.")
-        return
-
     try:
-        alert_url = f"https://api.telegram.org/bot{token}/sendMessage"
-        payload = {
-            "chat_id": chat_id,
-            "text": f"🚨 [Dirty Launderer Webhook] {message}",
-            "parse_mode": "HTML"
-        }
-        response = requests.post(alert_url, json=payload, timeout=10)
-        response.raise_for_status()
-        logger.info("Alert sent successfully")
+        requests.post(
+            f"https://api.telegram.org/bot{os.environ['TELEGRAM_TOKEN']}/sendMessage",
+            data={
+                "chat_id": os.environ["ALERT_CHAT_ID"],
+                "text": f"🚨 [The Dirty Launderer🧼 Webhook] {message}",
+            },
+            timeout=10
+        )
     except Exception as e:
         logger.error(f"Failed to send alert: {type(e).__name__}")
 
@@ -80,7 +75,7 @@ def main(request):
 
             success_msg = f"Webhook successfully updated to: {expected_url}"
             logger.info(success_msg)
-            send_alert(token, alert_chat_id, success_msg)
+            send_alert(success_msg)
             return {"status": "updated", "message": success_msg}, 200
 
         logger.info("Webhook is correctly configured")
@@ -89,11 +84,11 @@ def main(request):
     except requests.exceptions.RequestException as e:
         error_msg = f"HTTP error: {type(e).__name__}"
         logger.error(error_msg)
-        send_alert(token, alert_chat_id, f"❌ {error_msg}")
+        send_alert(f"❌ {error_msg}")
         return {"error": error_msg}, 500
 
     except Exception as e:
         error_msg = f"Unexpected error: {type(e).__name__}"
         logger.error(error_msg)
-        send_alert(token, alert_chat_id, f"❌ {error_msg}")
+        send_alert(f"❌ {error_msg}")
         return {"error": error_msg}, 500 

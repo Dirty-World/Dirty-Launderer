@@ -6,7 +6,7 @@ def welcome(update: Update, context: CallbackContext) -> None:
     Sends a welcome message to the user with information about the bot's features and admin commands.
     """
     message = (
-        "👋 Welcome to Dirty Launderer — your privacy-first link cleaner bot.\n\n"
+        "👋 Welcome to The Dirty Launderer🧼 — your privacy-first link cleaner bot.\n\n"
         "🧼 This bot removes tracking parameters from URLs and can proxy uncleanable links via privacy frontends like "
         "Invidious, Nitter, Libreddit, and more.\n\n"
         "🔧 Admin Commands:\n"

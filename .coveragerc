@@ -1,0 +1,40 @@
+[run]
+branch = True
+source = bot
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    pass
+    raise ImportError
+    except ImportError:
+    
+# Show line numbers of missing statements
+show_missing = True
+
+# Fail if coverage falls below 80%
+fail_under = 80
+
+# Generate separate reports for different parts of the codebase
+[paths]
+admin = 
+    bot/admin/
+    bot/admin/tests/
+utils = 
+    bot/utils/
+    bot/utils/tests/
+core = 
+    bot/
+    bot/tests/
+
+[html]
+directory = coverage_html
+title = The Dirty Launderer🧼 Coverage Report
+
+# Generate a nice badge for the README
+[badge]
+location = coverage_html/badge.svg
+format = svg 

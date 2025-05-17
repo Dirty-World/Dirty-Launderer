@@ -1,4 +1,4 @@
-name: Deploy Dirty Launderer Bot to GCP
+name: Deploy The Dirty Launderer🧼 Bot to GCP
 
 # Trigger deployment on push to main or manual workflow_dispatch
 on:
@@ -71,7 +71,7 @@ jobs:
       uses: peter-evans/repository-dispatch@v2
       with:
         token: ${{ env.GITHUB_TOKEN }}
-        repository: Dirty-World/dirty-launderer-infra
+        repository: The-Dirty-Launderer/the-dirty-launderer-infra
         event-type: deploy-infrastructure
         client-payload: |
           {

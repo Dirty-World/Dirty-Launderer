@@ -1,0 +1,44 @@
+coverage:
+  status:
+    project:
+      default:
+        # Overall project coverage threshold
+        target: 80%
+        threshold: 1%
+    
+    # Per-module coverage thresholds
+    module:
+      bot/admin:
+        target: 85%
+        paths: 
+          - "bot/admin/"
+      bot/utils:
+        target: 90%
+        paths:
+          - "bot/utils/"
+      bot:
+        target: 80%
+        paths:
+          - "bot/"
+          - "!bot/admin/"
+          - "!bot/utils/"
+
+    # Coverage must not decrease on pull requests
+    patch:
+      default:
+        target: 90%
+        threshold: 1%
+
+# Configure coverage report display
+comment:
+  layout: "reach, diff, flags, files"
+  behavior: default
+  require_changes: true
+  require_base: yes
+  require_head: yes
+
+# Ignore certain files/patterns
+ignore:
+  - "bot/tests/**/*"
+  - "**/__init__.py"
+  - "setup.py" 

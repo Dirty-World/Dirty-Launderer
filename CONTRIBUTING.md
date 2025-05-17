@@ -1,4 +1,4 @@
-# Contributing to Dirty Launderer
+# Contributing to The Dirty Launderer🧼
 
 Thank you for considering contributing! We welcome all contributions, big or small.
 
@@ -17,7 +17,7 @@ Thank you for considering contributing! We welcome all contributions, big or sma
 
 ## 🚀 Setting Up Locally
 
-1. Clone the repository: `git clone https://github.com/your-repo.git`
+1. Clone the repository: `git clone https://github.com/Dirty-World/dirty-launderer.git`
 2. Navigate to the project directory: `cd dirty-launderer`
 3. Install dependencies: `pip install -r requirements.txt`
 4. Set up environment variables as described in `.env.example`.
@@ -52,4 +52,4 @@ Thank you for considering contributing! We welcome all contributions, big or sma
 
 Please read and follow our [Code of Conduct](CODE_OF_CONDUCT.md).
 
-Let’s keep links clean and users private 🌐
+Let's keep links clean and users private 🌐

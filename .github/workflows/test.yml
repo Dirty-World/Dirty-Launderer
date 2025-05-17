@@ -1,0 +1,99 @@
+name: Test and Coverage
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.11']
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0  # Fetch all history for accurate coverage
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Cache Python dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r bot/requirements.txt
+        pip install -r bot/requirements-dev.txt
+        pip install coverage-badge
+
+    - name: Run tests with coverage
+      run: |
+        pytest --cov-report=xml --cov-report=html --cov-report=term-missing:skip-covered --cov-branch --cov=bot.admin --cov=bot.utils --cov=bot
+
+    - name: Generate coverage badge
+      run: |
+        coverage-badge -o coverage_html/badge.svg -f
+
+    - name: Upload coverage reports to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        files: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: true
+        verbose: true
+
+    - name: Upload coverage HTML report
+      uses: actions/upload-artifact@v3
+      with:
+        name: coverage-report
+        path: coverage_html/
+
+    - name: Check coverage thresholds
+      run: |
+        echo "Checking coverage thresholds..."
+        coverage report --fail-under=80
+
+    - name: Comment coverage on PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          const coverage = fs.readFileSync('coverage.xml', 'utf8');
+          const percentage = coverage.match(/line-rate="([0-9.]+)"/)[1] * 100;
+          
+          const comment = `## Coverage Report
+          Total coverage: ${percentage.toFixed(2)}%
+          
+          [View detailed coverage report](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})
+          
+          <details>
+          <summary>Module-specific coverage</summary>
+          
+          \`\`\`
+          ${fs.readFileSync('coverage_html/index.html', 'utf8')
+            .match(/<table[^>]*>[\s\S]*?<\/table>/)[0]
+            .replace(/<[^>]*>/g, '')}
+          \`\`\`
+          </details>`;
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          }); 

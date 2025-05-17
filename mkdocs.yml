@@ -1,0 +1,24 @@
+site_name: Dirty Launderer
+site_url: https://your-site-url.com
+repo_url: https://github.com/your-repo
+
+theme:
+  name: material
+  favicon: assets/favicon.ico
+
+nav:
+  - Home: index.md
+  - Deployment Guide: deployment.md
+  - Telegram Commands: telegram_commands.md
+  - Handlers Overview: handlers.md
+  - Cloud Functions: functions.md
+  - Firestore Docs: firestoreref.md
+  - Deployment Steps: how-to-deploy.md
+
+plugins:
+  - search
+
+markdown_extensions:
+  - toc
+  - admonition
+  - codehilite

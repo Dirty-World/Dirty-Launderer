@@ -66,13 +66,15 @@ jobs:
         # Initialize Terraform with GCS backend
         terraform init
         
-        # Import existing resources (skipping remove since there's no state yet)
+        # Import existing resources
         terraform import google_pubsub_topic.budget_alert_topic projects/the-dirty-launderer/topics/dev-budget-alert-topic || true
         terraform import google_pubsub_topic.budget_alert_topic_main projects/the-dirty-launderer/topics/budget-alert-topic-main || true
-        # terraform import google_cloudfunctions2_function.github_proxy_sync projects/the-dirty-launderer/locations/us-central1/functions/github-proxy-sync || true
         terraform import google_cloudfunctions_function.dirty_launderer_bot projects/the-dirty-launderer/locations/us-central1/functions/dirty-launderer-bot || true
         terraform import google_iam_workload_identity_pool.github_pool projects/the-dirty-launderer/locations/global/workloadIdentityPools/github-actions-pool || true
-        # Import existing resources if they exist
+        terraform import google_iam_workload_identity_pool_provider.github_provider projects/the-dirty-launderer/locations/global/workloadIdentityPools/github-actions-pool/providers/github-actions-provider || true
+        terraform import google_service_account_iam_binding.workload_identity_binding projects/the-dirty-launderer/serviceAccounts/github-deployer@the-dirty-launderer.iam.gserviceaccount.com/roles/iam.workloadIdentityUser || true
+        terraform import google_project_iam_member.alert_function_pubsub_invoker the-dirty-launderer/roles/pubsub.subscriber/serviceAccount:the-dirty-launderer@appspot.gserviceaccount.com || true
+        terraform import google_cloudfunctions_function_iam_member.invoker projects/the-dirty-launderer/locations/us-central1/functions/dirty-launderer-bot/roles/cloudfunctions.invoker/allUsers || true
         terraform import google_pubsub_subscription.shutdown_trigger_sub projects/the-dirty-launderer/subscriptions/dev-budget-trigger-sub || true
         terraform import google_pubsub_subscription.budget_alert_subscription_main projects/the-dirty-launderer/subscriptions/budget-alert-subscription-main || true
         terraform import google_cloudfunctions_function.budget_alert_function projects/the-dirty-launderer/locations/us-central1/functions/budget-alert-function || true

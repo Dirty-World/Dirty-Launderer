@@ -73,7 +73,7 @@ jobs:
       run: |
         terraform apply -auto-approve \
           -var="project_id=$GCP_PROJECT_ID" \
-          -var="source_archive=dist/bot-source.zip" \
+          -var="bot_source_archive=bot-source.zip" \
           -var="GCS_BUCKET_NAME=$GCS_BUCKET_NAME"
 
     - name: Notify on Failure

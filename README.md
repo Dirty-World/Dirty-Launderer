@@ -1,141 +1,181 @@
+> 🚧 **UNDER CONSTRUCTION** 🚧
+> 
+> This project is currently being developed. Features and documentation may be incomplete.
+
+<div align="center">
+  <img src="assets/dirty-launderer-logo.png" alt="The Dirty Launderer Logo" width="300"/>
+</div>
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Terraform](https://img.shields.io/badge/terraform-%235835CC.svg?style=flat&logo=terraform&logoColor=white)](https://www.terraform.io/)
+[![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
+[![Telegram](https://img.shields.io/badge/Telegram-2CA5E0?style=flat&logo=telegram&logoColor=white)](https://telegram.org/)
 [![GCP](https://img.shields.io/badge/Google_Cloud-4285F4?style=flat&logo=google-cloud&logoColor=white)](https://cloud.google.com/)
 
-# The Dirty Launderer🧼 Infrastructure
+# The Dirty Launderer 🧼
 
-Infrastructure as Code (IaC) repository for The Dirty Launderer🧼 bot. This repository contains all the necessary Terraform configurations and deployment workflows to set up and maintain the bot's cloud infrastructure on Google Cloud Platform.
+💃 A lady in the streets, and clean in the sheets... of tracking parameters. 🧼
 
-## 🏗️ Infrastructure Components
+A privacy-first Telegram bot that automatically cleanses URLs of tracking parameters and provides privacy-respecting alternatives through services like Invidious, Nitter, Libreddit, and more.
 
-- **Cloud Functions**
-  - Main bot function (Python 3.11 runtime)
-  - Event-driven architecture
-  - Telegram webhook integration
+## 🎯 Purpose
 
-- **Firestore**
-  - Document database for storing:
-    - Domain configurations
-    - User preferences
-    - Logging settings
-  - Native GCP integration
+The Dirty Launderer serves as your personal privacy guardian by:
+- 🧹 Stripping tracking parameters from shared URLs
+- 🔄 Redirecting social media links to privacy-respecting frontends
+- 🛡️ Protecting your digital footprint from unnecessary surveillance
+- ✨ Making privacy-conscious browsing effortless
+- 🧼 Keeping your online activities clean and tracker-free
 
-- **Cloud Storage**
-  - Artifact storage for bot deployments
-  - Version control for releases
+Think of it as your digital laundromat - keeping your browsing pristine and your data private! ✨
 
-- **Monitoring & Logging**
-  - Cloud Monitoring dashboards
-  - PII-safe structured logging
-  - Alert policies
-  - Error reporting
+## 🤖 Features
 
-- **Security**
-  - Workload Identity Federation
-  - Secret Manager integration
-  - Minimal IAM permissions
+- 🧹 **URL Cleaning**: Automatically removes tracking parameters (UTM, fbclid, etc.)
+- 🔒 **Privacy Alternatives**: 
+  - 📺 YouTube → Invidious
+  - 🐦 Twitter → Nitter
+  - 🤖 Reddit → Libreddit
+  - 📸 Instagram → Bibliogram
+  - ✨ And more!
+- 👥 **Group Support**: Works in both private chats and group conversations
+- ⚙️ **Customizable Settings**: Choose which services and parameters to clean
+- 🤫 **Zero Logging**: No storage of user data or cleaned URLs
+- 🏠 **Self-hostable**: Run your own instance for maximum privacy
+- 🌐 **Multi-environment Support**: Separate configurations for development and production
 
-## 📁 Repository Structure
+## 🛠️ Tech Stack
 
+- 🐍 **Python 3.11**: Core programming language
+- ☁️ **Google Cloud Functions**: Serverless compute
+- 📦 **Firestore**: Configuration storage (no user data)
+- 💾 **Cloud Storage**: Artifact storage
+- 🔐 **Secret Manager**: Secure credentials management
+- 🔄 **GitHub Actions**: CI/CD pipeline
+
+## 🚀 Getting Started
+
+1. 📋 **Prerequisites**:
+   - Python 3.11
+   - Google Cloud SDK
+   - Telegram Bot Token (from @BotFather)
+
+2. 💻 **Local Setup**:
+   ```bash
+   # Clone the repository
+   git clone https://github.com/Dirty-World/dirty-launderer.git
+   cd dirty-launderer
+
+   # Create and activate virtual environment
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+   # Install dependencies
+   pip install -r requirements-dev.txt
+   ```
+
+3. ⚙️ **Configuration**:
+   - Create a `.env` file with required environment variables
+   - Set up Google Cloud credentials
+   - Configure Telegram webhook
+
+## 🧪 Testing
+
+```bash
+# Run tests
+pytest
+
+# Run tests with coverage
+pytest --cov=bot
 ```
-dirty-launderer-infra/
-├── terraform/
-│   ├── environments/          # Environment-specific configs
-│   │   ├── dev/
-│   │   └── prod/
-│   ├── modules/              # Reusable Terraform modules
-│   │   ├── function/
-│   │   ├── firestore/
-│   │   ├── monitoring/
-│   │   └── security/
-│   └── shared/              # Shared configurations
-├── .github/
-│   └── workflows/           # GitHub Actions
-│       ├── deploy.yml       # Infrastructure deployment
-│       └── test.yml        # Terraform validation
-└── README.md
+
+## 📦 Deployment
+
+The bot is automatically deployed via GitHub Actions when:
+- 🔄 Code is pushed to the main branch
+- 🖱️ Manual workflow dispatch is triggered
+
+For manual deployment, ensure you have the necessary GCP permissions and run:
+```bash
+gcloud functions deploy dirty-launderer --runtime python311 --trigger-http
 ```
 
-## 🚀 Deployment Process
+## 🔒 Security
 
-1. **Prerequisites**:
-   - Google Cloud project with required APIs enabled
-   - GitHub repository secrets configured
-   - Workload Identity Federation set up
-
-2. **GitHub Secrets Required**:
-   - `GCP_PROJECT_ID` - Google Cloud project identifier
-   - `GCS_BUCKET_NAME` - Artifact storage bucket
-   - `GITHUB_TOKEN` - For repository dispatch events
-
-3. **Deployment Flow**:
-   - Triggered by:
-     - Push to main branch
-     - Manual workflow dispatch
-     - Repository dispatch from main bot repo
-   - Actions:
-     - Validates Terraform configurations
-     - Applies infrastructure changes
-     - Updates Cloud Function code
-     - Configures monitoring and alerts
-     - Sets up Telegram webhook
-
-4. **Environment Support**:
-   - Development (`dev`)
-   - Production (`prod`)
-   - Environment-specific configurations and secrets
-
-## 🔧 Local Development
-
-1. **Setup**:
-   ```bash
-   # Install required tools
-   terraform init
-   
-   # Configure GCP authentication
-   gcloud auth application-default login
-   ```
-
-2. **Testing**:
-   ```bash
-   # Validate Terraform configurations
-   terraform validate
-   
-   # Check planned changes
-   terraform plan
-   ```
-
-3. **Manual Deployment**:
-   ```bash
-   # Apply changes to dev
-   terraform workspace select dev
-   terraform apply
-   
-   # Apply to production
-   terraform workspace select prod
-   terraform apply
-   ```
-
-## 🔒 Security Notes
-
-- All secrets are managed through Google Cloud Secret Manager
-- Minimal IAM roles following principle of least privilege
-- Workload Identity Federation used for GitHub Actions
-- Regular security scanning and updates
+- 🔐 All sensitive data is stored in Google Cloud Secret Manager
+- 🔒 Webhook endpoints are secured with HTTPS
+- ✅ Input validation and sanitization
+- 🔄 Regular security updates and monitoring
 
 ## 📝 Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Run `terraform fmt` and `terraform validate`
-5. Submit a pull request
+1. 🍴 Fork the repository
+2. 🌿 Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. 💻 Make your changes
+4. 🧪 Run tests
+5. 📤 Submit a pull request
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
 
 ## 💬 Support
 
-For infrastructure-related issues or questions:
-1. Check existing GitHub issues
-2. Review the documentation
-3. Create a new issue with the "infrastructure" label
+For bot-related issues or questions:
+1. 🔍 Check existing GitHub issues
+2. 📖 Review the documentation
+3. ➕ Create a new issue with details about your problem
 
-Made with 🧼 by The Dirty Launderer🧼 team
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
+
+---
+
+🧼 Made with love by The Dirty Launderer 🧼 team
+
+## ⚙️ Admin Configuration
+
+Administrators can configure the bot's behavior through various commands:
+
+### 🎛️ Domain Handling
+- `/setdomain` - Configure how specific domains are handled:
+  - 🧹 `clean` - Remove tracking parameters
+  - 🔄 `proxy` - Redirect through privacy-respecting frontend
+  - 💤 `ignore` - Leave URLs unchanged
+- `/listdomains` - View current domain rules
+- `/resetdomains` - Reset to default settings
+- `/setdefault` - Set default behavior for unconfigured domains
+
+### 📝 Default Domain Settings
+```json
+{
+  "tiktok.com": "proxy",
+  "twitter.com": "proxy",
+  "youtube.com": "proxy",
+  "instagram.com": "clean",
+  "facebook.com": "proxy",
+  "reddit.com": "proxy",
+  "amazon.com": "clean"
+}
+```
+
+### 🔒 Privacy Frontends
+The bot uses multiple instances for each privacy-respecting frontend:
+- 📺 **Invidious** (YouTube): invidious.snopyta.org, yewtu.be, etc.
+- 🐦 **Nitter** (Twitter): nitter.net, nitter.privacydev.net, etc.
+- 🤖 **Libreddit** (Reddit): libreddit.kavin.rocks, libreddit.privacydev.net
+- 📝 **Scribe** (Medium): scribe.rip, scribe.privacydev.net
+
+### 📊 Monitoring & Logging
+- `/setlogging` - Toggle safe logging (no personal data stored)
+- `/showlogging` - View current logging status
+- `/configsummary` - Display group's current configuration
+- `/proxies` - Show count of active proxy frontends
+- `/status` - Check bot and webhook health
+- `/alerttest` - Test admin notifications
+
+### 👥 Group-Specific Settings
+Each Telegram group can have its own configuration:
+- 🎯 Custom domain rules
+- ⚙️ Different default behaviors
+- 📝 Independent logging settings
+
+All settings are stored in Firestore with no user data retention.

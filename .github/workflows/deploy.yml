@@ -16,8 +16,10 @@ on:
           - prod
 
 permissions:
-  contents: read
+  contents: write
   id-token: write
+  actions: write
+  repository-projects: write
 
 jobs:
   deploy:
@@ -65,18 +67,25 @@ jobs:
     - name: Get GitHub Token from Secret Manager
       id: get-token
       run: |
-        echo "GITHUB_TOKEN=$(gcloud secrets versions access latest --secret=GITHUB_TOKEN)" >> $GITHUB_ENV
+        # Ensure we have access to Secret Manager
+        if ! gcloud secrets versions access latest --secret=GITHUB_TOKEN &>/dev/null; then
+          echo "Error: Could not access GITHUB_TOKEN secret. Check Secret Manager permissions."
+          exit 1
+        fi
+        # Get the token and set it as an environment variable
+        echo "GITHUB_PAT=$(gcloud secrets versions access latest --secret=GITHUB_TOKEN)" >> $GITHUB_ENV
 
     - name: Trigger Infrastructure Deployment
       uses: peter-evans/repository-dispatch@v2
       with:
-        token: ${{ env.GITHUB_TOKEN }}
-        repository: Dirty-World/dirty-launderer-infra
+        token: ${{ env.GITHUB_PAT }}
+        repository: Dirty-World/Dirty-Launderer-Infra
         event-type: deploy-infrastructure
         client-payload: |
           {
             "environment": "${{ github.event.inputs.environment || 'dev' }}",
-            "source_version": "${{ github.sha }}"
+            "source_version": "${{ github.sha }}",
+            "gcs_bucket_name": "${{ secrets.GCS_BUCKET_NAME }}"
           }
 
     - name: Notify on Failure

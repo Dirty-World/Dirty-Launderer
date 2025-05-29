@@ -1,7 +1,7 @@
 import os
 import pytest
 from unittest.mock import patch, MagicMock
-from main import send_alert, delete_cloud_functions, pause_scheduler_jobs
+from bot.main import send_alert, delete_cloud_functions, pause_scheduler_jobs
 
 @patch("main.requests.post")
 def test_send_alert_success(mock_post):

@@ -2,7 +2,7 @@ import os
 import pytest
 from unittest.mock import patch, MagicMock
 import json
-from main import main
+from bot.main import main
 from webhook_check_function import main as webhook_check
 
 @pytest.fixture

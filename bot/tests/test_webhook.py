@@ -2,7 +2,7 @@ import os
 import pytest
 from unittest.mock import patch, MagicMock
 import json
-from webhook_check_function import main, is_valid_url, send_alert
+from bot.webhook_check_function import main, is_valid_url, send_alert
 
 @pytest.fixture
 def mock_env_vars():

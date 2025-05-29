@@ -2,7 +2,7 @@ import os
 import pytest
 from unittest.mock import patch, MagicMock
 import json
-from main import main
+from bot.main import main
 
 # Google Cloud Free Tier Limits (2024)
 FREE_TIER_LIMITS = {

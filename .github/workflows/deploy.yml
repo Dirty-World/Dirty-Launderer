@@ -92,7 +92,7 @@ jobs:
     - name: Trigger Infrastructure Deployment
       uses: peter-evans/repository-dispatch@v2
       with:
-        token: ${{ env.GITHUB_PAT }}
+        token: ${{ secrets.GITHUB_TOKEN }}
         repository: Dirty-World/dirty-launderer-infra
         event-type: deploy-infrastructure
         client-payload: |
@@ -101,6 +101,8 @@ jobs:
             "source_version": "${{ github.sha }}",
             "bot_source_zip": "bot-source.zip"
           }
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Notify on Failure
       if: failure()

@@ -93,7 +93,7 @@ jobs:
       uses: peter-evans/repository-dispatch@v2
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
-        repository: Dirty-World/Dirty-Launderer-Infra
+        repository: Dirty-World/dirty-launderer-infra
         event-type: deploy-infrastructure
         client-payload: |
           {

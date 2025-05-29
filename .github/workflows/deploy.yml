@@ -60,9 +60,7 @@ jobs:
         project_id: ${{ secrets.GCP_PROJECT_ID }}
 
     - name: Upload bot source to GCS
-      run: gsutil cp dist/bot-source.zip gs://$GCS_BUCKET_NAME/
-      env:
-        GCS_BUCKET_NAME: ${{ secrets.GCS_BUCKET_NAME }}
+      run: gsutil cp dist/bot-source.zip gs://${{ secrets.GCS_BUCKET_NAME }}/
 
     - name: Get GitHub Token from Secret Manager
       id: get-token
@@ -79,13 +77,13 @@ jobs:
       uses: peter-evans/repository-dispatch@v2
       with:
         token: ${{ env.GITHUB_PAT }}
-        repository: Dirty-World/Dirty-Launderer-Infra
+        repository: Dirty-World/dirty-launderer-infra
         event-type: deploy-infrastructure
         client-payload: |
           {
             "environment": "${{ github.event.inputs.environment || 'dev' }}",
             "source_version": "${{ github.sha }}",
-            "gcs_bucket_name": "${{ secrets.GCS_BUCKET_NAME }}"
+            "bot_source_zip": "bot-source.zip"
           }
 
     - name: Notify on Failure

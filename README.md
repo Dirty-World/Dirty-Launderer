@@ -43,6 +43,43 @@ Think of it as your digital laundromat - keeping your browsing pristine and your
 - 🏠 **Self-hostable**: Run your own instance for maximum privacy
 - 🌐 **Multi-environment Support**: Separate configurations for development and production
 
+## 🏗️ Architecture & Deployment
+
+This project uses a **two-repository deployment architecture** for security and separation of concerns:
+
+### 📦 Repository Structure
+1. **[Main Repository (This Repo)](https://github.com/Dirty-World/Dirty-Launderer)**: Contains bot code, tests, and application logic
+2. **[Infrastructure Repository](https://github.com/Dirty-World/Dirty-Launderer-Infra)**: Contains Terraform configurations and infrastructure definitions
+
+### 🔄 Deployment Flow
+```mermaid
+graph LR
+    A[Code Push to Main] --> B[Build & Test Bot Code]
+    B --> C[Package & Upload to GCS]
+    C --> D[Trigger Infrastructure Repo]
+    D --> E[Download Bot Code from GCS]
+    E --> F[Apply Terraform]
+    F --> G[Deploy Cloud Functions]
+```
+
+1. **Main Repo Workflow**:
+   - Runs tests and builds bot code
+   - Creates deployment package (`bot-source.zip`)
+   - Uploads package to Google Cloud Storage
+   - Triggers infrastructure repository via repository dispatch
+
+2. **Infrastructure Repo Workflow** (Automatically triggered):
+   - Downloads the bot package from GCS
+   - Runs Terraform to provision/update infrastructure
+   - Deploys Cloud Functions with the new code
+   - Sets up monitoring and webhooks
+
+### 🔐 Security Model
+- **Workload Identity Federation**: No service account keys stored anywhere
+- **Google Secret Manager**: All sensitive values (tokens, IDs) stored securely in GCP
+- **Cross-Repository Authentication**: Infrastructure repo triggered securely from main repo
+- **Least Privilege**: Each repository has only the permissions it needs
+
 ## 🛠️ Tech Stack
 
 - 🐍 **Python 3.11**: Core programming language
@@ -90,14 +127,34 @@ pytest --cov=bot
 
 ## 📦 Deployment
 
-The bot is automatically deployed via GitHub Actions when:
-- 🔄 Code is pushed to the main branch
-- 🖱️ Manual workflow dispatch is triggered
+### 🏗️ Two-Repository Setup Required
 
-For manual deployment, ensure you have the necessary GCP permissions and run:
-```bash
-gcloud functions deploy dirty-launderer --runtime python311 --trigger-http
-```
+**Before deploying the bot, you must set up both repositories:**
+
+1. **First**: Set up the [Infrastructure Repository](https://github.com/Dirty-World/Dirty-Launderer-Infra)
+   - Contains Terraform configurations
+   - Provisions Google Cloud resources
+   - Must be configured before deploying bot code
+
+2. **Then**: Deploy bot code from this repository
+   - Automatically triggered on push to `main` branch
+   - Can also be triggered manually via GitHub Actions
+
+### 🚀 Automatic Deployment
+
+The bot is automatically deployed via our two-stage pipeline when:
+- 🔄 Code is pushed to the main branch
+- 🖱️ Manual workflow dispatch is triggered from GitHub Actions
+
+### 🔧 Manual Deployment Prerequisites
+
+If you need to deploy manually, ensure you have:
+- Google Cloud SDK installed and authenticated
+- Access to the `the-dirty-launderer` GCP project
+- Required secrets configured in Google Secret Manager
+- Infrastructure repository properly set up with Terraform
+
+For detailed setup instructions, see the [Infrastructure Repository](https://github.com/Dirty-World/Dirty-Launderer-Infra).
 
 ## 🔒 Security
 

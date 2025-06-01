@@ -72,27 +72,22 @@ jobs:
 
     - name: Set up gcloud CLI
       uses: google-github-actions/setup-gcloud@v1
-      with:
-        project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+    - name: Get All Secrets from Secret Manager
+      id: get-secrets
+      run: |
+        # Get all required secrets from Secret Manager
+        echo "GCP_PROJECT_ID=$(gcloud secrets versions access latest --secret=GCP_PROJECT_ID)" >> $GITHUB_ENV
+        echo "GCS_BUCKET_NAME=$(gcloud secrets versions access latest --secret=GCS_BUCKET_NAME)" >> $GITHUB_ENV
+        echo "GITHUB_PAT=$(gcloud secrets versions access latest --secret=GITHUB_TOKEN)" >> $GITHUB_ENV
 
     - name: Upload bot source to GCS
-      run: gsutil cp dist/bot-source.zip gs://${{ secrets.GCS_BUCKET_NAME }}/
-
-    - name: Get GitHub Token from Secret Manager
-      id: get-token
-      run: |
-        # Ensure we have access to Secret Manager
-        if ! gcloud secrets versions access latest --secret=GITHUB_TOKEN &>/dev/null; then
-          echo "Error: Could not access GITHUB_TOKEN secret. Check Secret Manager permissions."
-          exit 1
-        fi
-        # Get the token and set it as an environment variable
-        echo "GITHUB_PAT=$(gcloud secrets versions access latest --secret=GITHUB_TOKEN)" >> $GITHUB_ENV
+      run: gsutil cp dist/bot-source.zip gs://${{ env.GCS_BUCKET_NAME }}/
 
     - name: Trigger Infrastructure Deployment
       uses: peter-evans/repository-dispatch@v2
       with:
-        token: ${{ secrets.GITHUB_TOKEN }}
+        token: ${{ env.GITHUB_PAT }}
         repository: Dirty-World/Dirty-Launderer-Infra
         event-type: deploy-infrastructure
         client-payload: |
@@ -102,7 +97,7 @@ jobs:
             "bot_source_zip": "bot-source.zip"
           }
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ env.GITHUB_PAT }}
 
     - name: Notify on Failure
       if: failure()

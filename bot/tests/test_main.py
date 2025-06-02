@@ -5,7 +5,7 @@ from telegram import Update, User, Chat, Message
 from bot.webhook_check_function import send_alert
 from bot.main import sanitize_input, hash_user_id, get_safe_domain, main, start, privacy_command, delete_command, help_command, handle_message
 
-@patch("webhook_check_function.requests.post")
+@patch("bot.webhook_check_function.requests.post")
 def test_send_alert_success(mock_post):
     mock_post.return_value.status_code = 200
     mock_post.return_value.raise_for_status = MagicMock()
@@ -15,7 +15,7 @@ def test_send_alert_success(mock_post):
     send_alert("Test message")
     mock_post.assert_called_once()
 
-@patch("webhook_check_function.requests.post")
+@patch("bot.webhook_check_function.requests.post")
 def test_send_alert_failure(mock_post):
     mock_post.side_effect = Exception("Network error")
     os.environ["TELEGRAM_TOKEN"] = "dummy_token"
@@ -24,7 +24,7 @@ def test_send_alert_failure(mock_post):
     send_alert("Test message")
     mock_post.assert_called_once()
 
-@patch("webhook_check_function.requests.post")
+@patch("bot.webhook_check_function.requests.post")
 def test_send_alert_missing_env_vars(mock_post):
     if "TELEGRAM_TOKEN" in os.environ:
         del os.environ["TELEGRAM_TOKEN"]

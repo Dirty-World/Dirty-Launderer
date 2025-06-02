@@ -20,8 +20,8 @@ class TestEndToEnd:
     """End-to-end integration tests."""
     
     @patch("bot.main.Bot")
-    @patch("webhook_check_function.requests.get")
-    @patch("webhook_check_function.requests.post")
+    @patch("bot.webhook_check_function.requests.get")
+    @patch("bot.webhook_check_function.requests.post")
     def test_complete_message_flow(self, mock_post, mock_get, mock_bot, mock_env_vars):
         """Test complete message flow from webhook to response."""
         # Mock webhook check

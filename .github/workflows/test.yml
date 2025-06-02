@@ -1,4 +1,4 @@
-name: Test and Coverage
+name: Test The Dirty Launderer Bot
 
 on:
   push:
@@ -7,105 +7,56 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   test:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ['3.11']
 
     steps:
-    - uses: actions/checkout@v3
-      with:
-        fetch-depth: 0  # Fetch all history for accurate coverage
+    - name: Checkout code
+      uses: actions/checkout@v3
 
-    - name: Set up Python ${{ matrix.python-version }}
+    - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: ${{ matrix.python-version }}
-
-    - name: Set up Google Cloud SDK
-      uses: google-github-actions/setup-gcloud@v2
-      with:
-        project_id: ${{ secrets.GCP_PROJECT_ID }}
-        credentials_json: ${{ secrets.GCP_SA_KEY }}
+        python-version: '3.11'
+        check-latest: true
 
     - name: Cache Python dependencies
       uses: actions/cache@v3
       with:
         path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
         restore-keys: |
           ${{ runner.os }}-pip-
 
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r bot/requirements.txt
-        pip install -r bot/requirements-dev.txt
-        pip install coverage-badge
-      env:
-        PYTHONPATH: ${{ github.workspace }}
+        if [ -f requirements.txt ]; then
+          pip install -r requirements.txt
+        fi
+        pip install pytest pytest-cov pytest-mock
+
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v1
+      with:
+        workload_identity_provider: "projects/60107979354/locations/global/workloadIdentityPools/github-actions-pool-prod/providers/github-actions-provider-prod"
+        service_account: "github-deployer@the-dirty-launderer.iam.gserviceaccount.com"
+
+    - name: Set up gcloud CLI
+      uses: google-github-actions/setup-gcloud@v1
 
     - name: Run tests with coverage
       run: |
         pytest --cov --cov-branch --cov-report=xml
-      env:
-        PYTHONPATH: ${{ github.workspace }}
 
-    - name: Generate coverage badge
-      run: |
-        coverage-badge -o coverage_html/badge.svg -f
-
-    - name: Get Codecov token from GCP Secret Manager
-      id: get-token
-      run: |
-        echo "CODECOV_TOKEN=$(gcloud secrets versions access latest --secret=CODECOV_TOKEN)" >> $GITHUB_ENV
-
-    - name: Upload coverage reports to Codecov
-      run: |
-        curl -Os https://uploader.codecov.io/latest/linux/codecov
-        chmod +x codecov
-        ./codecov -t ${{ env.CODECOV_TOKEN }} -f ./coverage.xml -F unittests -n codecov-umbrella -v
-
-    - name: Upload coverage HTML report
-      uses: actions/upload-artifact@v4
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
       with:
-        name: coverage-report
-        path: coverage_html/
-
-    - name: Check coverage thresholds
-      run: |
-        echo "Checking coverage thresholds..."
-        coverage report --fail-under=80
-
-    - name: Comment coverage on PR
-      if: github.event_name == 'pull_request'
-      uses: actions/github-script@v6
-      with:
-        script: |
-          const fs = require('fs');
-          const coverage = fs.readFileSync('coverage.xml', 'utf8');
-          const percentage = coverage.match(/line-rate="([0-9.]+)"/)[1] * 100;
-          
-          const comment = `## Coverage Report
-          Total coverage: ${percentage.toFixed(2)}%
-          
-          [View detailed coverage report](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})
-          
-          <details>
-          <summary>Module-specific coverage</summary>
-          
-          \`\`\`
-          ${fs.readFileSync('coverage_html/index.html', 'utf8')
-            .match(/<table[^>]*>[\s\S]*?<\/table>/)[0]
-            .replace(/<[^>]*>/g, '')}
-          \`\`\`
-          </details>`;
-          
-          github.rest.issues.createComment({
-            issue_number: context.issue.number,
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            body: comment
-          }); 
+        file: ./coverage.xml
+        fail_ci_if_error: true
+        token: ${{ secrets.CODECOV_TOKEN }} 

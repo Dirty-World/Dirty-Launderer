@@ -10,6 +10,7 @@ import time
 from collections import defaultdict
 import re
 import html
+from bot.utils.secret_manager import get_secret
 
 # Configure logging with minimal metadata
 logging.basicConfig(
@@ -18,11 +19,15 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Get token from environment variable
-TELEGRAM_TOKEN = os.environ.get('TELEGRAM_TOKEN', 'test_token')
-if not TELEGRAM_TOKEN:
-    logger.error("Missing TELEGRAM_TOKEN environment variable")
-    raise EnvironmentError("Missing TELEGRAM_TOKEN environment variable")
+# Get token from Secret Manager
+try:
+    TELEGRAM_TOKEN = get_secret('TELEGRAM_BOT_TOKEN')
+    if not TELEGRAM_TOKEN:
+        logger.error("Failed to get TELEGRAM_BOT_TOKEN from Secret Manager")
+        raise EnvironmentError("Failed to get TELEGRAM_BOT_TOKEN from Secret Manager")
+except Exception as e:
+    logger.error(f"Error getting token from Secret Manager: {str(e)}")
+    raise
 
 # Rate limiting
 RATE_LIMIT = 10  # requests per minute

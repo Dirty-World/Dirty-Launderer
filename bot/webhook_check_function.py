@@ -2,6 +2,7 @@ import os
 import requests
 import logging
 from urllib.parse import urlparse
+from google.cloud import secretmanager
 
 # Configure logging
 logging.basicConfig(
@@ -9,6 +10,13 @@ logging.basicConfig(
     format='%(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+def get_secret(project_id, secret_id, version_id="latest"):
+    """Fetch a secret from Secret Manager."""
+    client = secretmanager.SecretManagerServiceClient()
+    name = f"projects/{project_id}/secrets/{secret_id}/versions/{version_id}"
+    response = client.access_secret_version(request={"name": name})
+    return response.payload.data.decode("UTF-8")
 
 def is_valid_url(url):
     """Validate URL format."""
@@ -35,13 +43,14 @@ def send_alert(message):
 def main(request):
     """Cloud Function entry point for webhook check."""
     try:
-        # Get environment variables
-        token = os.environ.get('TELEGRAM_TOKEN')
+        # Fetch the token from Secret Manager
+        project_id = os.environ.get('GCP_PROJECT_ID')
+        token = get_secret(project_id, "TELEGRAM_BOT_TOKEN")
         expected_url = os.environ.get('EXPECTED_WEBHOOK_URL')
         alert_chat_id = os.environ.get('ALERT_CHAT_ID')
 
         if not token or not expected_url:
-            error_msg = "Missing required environment variables"
+            error_msg = "Missing required environment variables or secrets"
             logger.error(error_msg)
             return {"error": error_msg}, 500
 

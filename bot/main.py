@@ -1,8 +1,9 @@
 import os
 import json
 import logging
-from telegram import Update, Bot, ParseMode
-from telegram.ext import Dispatcher, CommandHandler, MessageHandler, Filters
+from telegram import Update, Bot
+from telegram.constants import ParseMode
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 import hashlib
 from urllib.parse import urlparse
 import gc
@@ -10,7 +11,8 @@ import time
 from collections import defaultdict
 import re
 import html
-from bot.utils.secret_manager import get_secret
+from utils.secret_manager import get_secret
+import asyncio
 
 # Configure logging with minimal metadata
 logging.basicConfig(
@@ -19,22 +21,26 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Get token from Secret Manager
-try:
-    TELEGRAM_TOKEN = get_secret('TELEGRAM_BOT_TOKEN')
-    if not TELEGRAM_TOKEN:
-        logger.error("Failed to get TELEGRAM_BOT_TOKEN from Secret Manager")
-        raise EnvironmentError("Failed to get TELEGRAM_BOT_TOKEN from Secret Manager")
-except Exception as e:
-    logger.error(f"Error getting token from Secret Manager: {str(e)}")
-    raise
-
 # Rate limiting
 RATE_LIMIT = 10  # requests per minute
 rate_limit_store = defaultdict(list)
 
 # User consent store
 user_consent = set()
+
+def get_telegram_token():
+    """Get the Telegram bot token from Secret Manager."""
+    try:
+        logger.debug("Attempting to get TELEGRAM_BOT_TOKEN from Secret Manager")
+        token = get_secret('TELEGRAM_BOT_TOKEN')
+        if not token:
+            logger.error("Failed to get TELEGRAM_BOT_TOKEN from Secret Manager")
+            raise EnvironmentError("Failed to get TELEGRAM_BOT_TOKEN from Secret Manager")
+        logger.debug("Successfully retrieved TELEGRAM_BOT_TOKEN")
+        return token
+    except Exception as e:
+        logger.error(f"Error getting token from Secret Manager: {str(e)}")
+        raise
 
 def sanitize_input(text):
     """Sanitize user input for logging."""
@@ -60,6 +66,8 @@ def get_safe_domain(url):
         if not url:
             return 'invalid-url'
         parsed = urlparse(url)
+        if not parsed.netloc:
+            return 'invalid-url'
         # Get base domain without subdomains
         domain_parts = parsed.netloc.split('.')
         if len(domain_parts) > 2:
@@ -87,24 +95,27 @@ def check_rate_limit(user_hash):
     
     if len(user_requests) >= RATE_LIMIT:
         logger.warning(f"Rate limit exceeded for user {user_hash}")
-        return False
+        return False, "Rate limit exceeded. Please try again in a minute."
     
     user_requests.append(current_time)
-    return True
+    return True, None
 
-def delete_message_after_delay(context, chat_id, message_id):
+async def delete_message_after_delay(context: ContextTypes.DEFAULT_TYPE, chat_id, message_id):
     """Delete message after 5 minutes for privacy."""
     try:
-        time.sleep(300)  # 5 minutes
-        context.bot.delete_message(chat_id=chat_id, message_id=message_id)
+        await asyncio.sleep(300)  # 5 minutes
+        await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
     except Exception as e:
         logger.error(f"Error deleting message: {type(e).__name__}")
 
-def privacy_command(update, context):
+async def privacy_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Send privacy policy information."""
     try:
         user_hash = hash_user_id(update.effective_user.id if update.effective_user else None)
-        if not check_rate_limit(user_hash):
+        rate_ok, rate_message = check_rate_limit(user_hash)
+        if not rate_ok:
+            msg = await update.message.reply_text(rate_message)
+            context.application.create_task(delete_message_after_delay(context, update.message.chat_id, msg.message_id))
             return
 
         privacy_text = (
@@ -118,59 +129,61 @@ def privacy_command(update, context):
             "• Rate limiting is in place to prevent abuse\n\n"
             "By using this bot, you consent to this privacy policy."
         )
-        
-        msg = update.message.reply_text(privacy_text, parse_mode=ParseMode.MARKDOWN)
-        context.job_queue.run_once(
-            lambda _: delete_message_after_delay(context, update.message.chat_id, msg.message_id),
-            300
-        )
+        msg = await update.message.reply_text(privacy_text, parse_mode=ParseMode.MARKDOWN)
+        context.application.create_task(delete_message_after_delay(context, update.message.chat_id, msg.message_id))
     finally:
         cleanup_session()
 
-def delete_command(update, context):
+async def delete_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Delete user's messages for privacy."""
     try:
         user_hash = hash_user_id(update.effective_user.id if update.effective_user else None)
-        if not check_rate_limit(user_hash):
+        rate_ok, rate_message = check_rate_limit(user_hash)
+        if not rate_ok:
+            msg = await update.message.reply_text(rate_message)
+            context.application.create_task(delete_message_after_delay(context, update.message.chat_id, msg.message_id))
             return
 
         if update.message.reply_to_message:
             try:
-                update.message.reply_to_message.delete()
+                await update.message.reply_to_message.delete()
             except Exception:
                 pass
-        update.message.delete()
+        await update.message.delete()
     finally:
         cleanup_session()
 
-def start(update, context):
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Send a message when the command /start is issued."""
     try:
         user_hash = hash_user_id(update.effective_user.id if update.effective_user else None)
-        if not check_rate_limit(user_hash):
+        rate_ok, rate_message = check_rate_limit(user_hash)
+        if not rate_ok:
+            msg = await update.message.reply_text(rate_message)
+            context.application.create_task(delete_message_after_delay(context, update.message.chat_id, msg.message_id))
             return
 
         logger.info(f"Command: start, User: {user_hash}")
-        msg = update.message.reply_text(
+        msg = await update.message.reply_text(
             'Hi! I am The Dirty Launderer🧼 bot. Send me a URL and I will clean it for you.\n'
             'Use /help to see available commands.'
         )
-        context.job_queue.run_once(
-            lambda _: delete_message_after_delay(context, update.message.chat_id, msg.message_id),
-            300
-        )
+        context.application.create_task(delete_message_after_delay(context, update.message.chat_id, msg.message_id))
     finally:
         cleanup_session()
 
-def help_command(update, context):
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Send a message when the command /help is issued."""
     try:
         user_hash = hash_user_id(update.effective_user.id if update.effective_user else None)
-        if not check_rate_limit(user_hash):
+        rate_ok, rate_message = check_rate_limit(user_hash)
+        if not rate_ok:
+            msg = await update.message.reply_text(rate_message)
+            context.application.create_task(delete_message_after_delay(context, update.message.chat_id, msg.message_id))
             return
 
         logger.info(f"Command: help, User: {user_hash}")
-        msg = update.message.reply_text(
+        msg = await update.message.reply_text(
             'The Dirty Launderer🧼 is here to help!\n\n'
             'Send me any URL and I will remove tracking parameters and proxy it through privacy-friendly frontends.\n\n'
             'Commands:\n'
@@ -179,89 +192,80 @@ def help_command(update, context):
             '/help - Show this help\n\n'
             'Made with 🧼 by The Dirty Launderer🧼 team'
         )
-        context.job_queue.run_once(
-            lambda _: delete_message_after_delay(context, update.message.chat_id, msg.message_id),
-            300
-        )
+        context.application.create_task(delete_message_after_delay(context, update.message.chat_id, msg.message_id))
     finally:
         cleanup_session()
 
-def handle_message(update, context):
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle incoming messages."""
     try:
         if update.message and update.message.text:
             user_hash = hash_user_id(update.effective_user.id if update.effective_user else None)
-            if not check_rate_limit(user_hash):
-                return  # Exit early if rate limit exceeded
+            rate_ok, rate_message = check_rate_limit(user_hash)
+            if not rate_ok:
+                msg = await update.message.reply_text(rate_message)
+                context.application.create_task(delete_message_after_delay(context, update.message.chat_id, msg.message_id))
+                return
 
             # Sanitize and check input
             sanitized_text = sanitize_input(update.message.text)
             if len(sanitized_text) > 2000:  # Reasonable limit for URLs
                 logger.warning(f"Message too long from {user_hash}")
-                msg = update.message.reply_text('Message too long')
-                context.job_queue.run_once(
-                    lambda _: delete_message_after_delay(context, update.message.chat_id, msg.message_id),
-                    300
-                )
+                msg = await update.message.reply_text('Message too long')
+                context.application.create_task(delete_message_after_delay(context, update.message.chat_id, msg.message_id))
                 return
 
             # Process the message (e.g., clean URL)
             # For now, just send a placeholder message
-            msg = update.message.reply_text('URL cleaning functionality coming soon!')
-            context.job_queue.run_once(
-                lambda _: delete_message_after_delay(context, update.message.chat_id, msg.message_id),
-                300
-            )
+            msg = await update.message.reply_text('URL cleaning functionality coming soon!')
+            context.application.create_task(delete_message_after_delay(context, update.message.chat_id, msg.message_id))
     finally:
         cleanup_session()
 
-def main(request):
-    """Cloud Function entry point."""
+async def process_update(request_json):
+    token = get_telegram_token()
+    bot = Bot(token=token)
+    application = ApplicationBuilder().token(token).build()
+    # Register handlers
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(CommandHandler("privacy", privacy_command))
+    application.add_handler(CommandHandler("delete", delete_command))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    # Create update object
+    update = Update.de_json(request_json, bot)
+    # Process update
+    await application.process_update(update)
+
+# Cloud Function entry point
+async def main(request):
     try:
-        # Parse the request body
         if request.method != "POST":
             logger.warning("Invalid request method")
             return 'Only POST requests are accepted', 405
-
-        # Log minimal request info
-        request_json = request.get_json(force=True)
+        try:
+            request_json = request.get_json(force=True)
+        except Exception as e:
+            logger.error(f"Error parsing JSON: {type(e).__name__}")
+            return {'error': 'BadRequest'}, 400
         update_type = 'message' if 'message' in request_json else 'callback_query' if 'callback_query' in request_json else 'unknown'
         logger.info(f"Update type: {update_type}")
-
         try:
-            # Initialize bot and get the update
-            bot = Bot(token=TELEGRAM_TOKEN)
-            update = Update.de_json(request_json, bot)
-
-            # Set up the dispatcher
-            dispatcher = Dispatcher(bot, None, workers=0, use_context=True)
-            
-            # Add handlers
-            dispatcher.add_handler(CommandHandler("start", start))
-            dispatcher.add_handler(CommandHandler("help", help_command))
-            dispatcher.add_handler(CommandHandler("privacy", privacy_command))
-            dispatcher.add_handler(CommandHandler("delete", delete_command))
-            dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
-
-            # Process the update
-            dispatcher.process_update(update)
-            
+            await process_update(request_json)
             return 'OK', 200
-
         except Exception as e:
-            # Log specific bot-related errors
             error_type = type(e).__name__
             logger.error(f"Bot error: {error_type}")
+            import traceback
+            logger.error(traceback.format_exc())
+            if error_type in ('ValueError', 'BadRequest', 'TypeError'):
+                return {'error': error_type}, 400
             if hasattr(e, 'message'):
-                # Only log error message if it exists and doesn't contain PII
                 safe_error = sanitize_input(str(e.message))
                 logger.error(f"Error details: {safe_error}")
             return {'error': error_type}, 500
-
     except Exception as e:
-        # Log general errors
         logger.error(f"Error: {type(e).__name__}")
         return 'Error processing update', 500
-    
     finally:
         cleanup_session()

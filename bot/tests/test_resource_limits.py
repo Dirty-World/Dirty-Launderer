@@ -2,7 +2,7 @@ import os
 import pytest
 from unittest.mock import patch, MagicMock
 import json
-from bot.main import main
+from main import main
 
 # Google Cloud Free Tier Limits (2024)
 FREE_TIER_LIMITS = {
@@ -23,7 +23,8 @@ class TestResourceLimits:
         yield
         del os.environ["TELEGRAM_TOKEN"]
 
-    def test_memory_usage(self, mock_env_vars):
+    @pytest.mark.asyncio
+    async def test_memory_usage(self, mock_env_vars):
         """Test that memory usage stays under free tier limit."""
         import psutil
         import os
@@ -42,14 +43,15 @@ class TestResourceLimits:
         process = psutil.Process(os.getpid())
         mem_before = process.memory_info().rss / 1024 / 1024  # Convert to MB
         
-        main(request)
+        await main(request)
         
         mem_after = process.memory_info().rss / 1024 / 1024
         mem_used = mem_after - mem_before
         
         assert mem_used < FREE_TIER_LIMITS['FUNCTION_MEMORY'], f"Memory usage ({mem_used}MB) exceeds free tier limit ({FREE_TIER_LIMITS['FUNCTION_MEMORY']}MB)"
 
-    def test_response_time(self, mock_env_vars):
+    @pytest.mark.asyncio
+    async def test_response_time(self, mock_env_vars):
         """Test that response time is well under the timeout limit."""
         import time
         
@@ -63,14 +65,15 @@ class TestResourceLimits:
         }
         
         start_time = time.time()
-        main(request)
+        await main(request)
         execution_time = time.time() - start_time
         
         # Should complete well under the 60s limit (using 10s as a safe threshold)
         assert execution_time < 10, f"Response time ({execution_time}s) is too close to free tier timeout limit"
 
-    @patch('bot.main.Bot')
-    def test_network_usage(self, mock_bot, mock_env_vars):
+    @pytest.mark.asyncio
+    @patch('main.Bot')
+    async def test_network_usage(self, mock_bot, mock_env_vars):
         """Test that network usage per request is reasonable."""
         from urllib.parse import urlparse
         import sys
@@ -98,7 +101,7 @@ class TestResourceLimits:
             }
         }
         
-        main(request)
+        await main(request)
         
         total_bytes = sum(outgoing_data)
         kb_per_request = total_bytes / 1024
@@ -110,7 +113,7 @@ class TestResourceLimits:
         assert monthly_gb < FREE_TIER_LIMITS['EGRESS_BANDWIDTH'], f"Projected monthly bandwidth ({monthly_gb}GB) exceeds free tier limit"
 
     @pytest.mark.skip(reason="Secret access rate test exceeds free tier in local/dev environment.")
-    @patch('bot.main.Bot')
+    @patch('main.Bot')
     def test_secret_access_rate(self, mock_bot, mock_env_vars):
         """Test that secret access rate stays within limits."""
         secret_accesses = []

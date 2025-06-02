@@ -1,0 +1,2 @@
+[console_scripts]
+dirty-launderer = dirty_launderer_bot.main:main

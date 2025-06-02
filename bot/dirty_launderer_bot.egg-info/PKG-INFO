@@ -1,0 +1,122 @@
+Metadata-Version: 2.4
+Name: dirty_launderer_bot
+Version: 0.1.0
+Summary: A Telegram bot for cleaning and sanitizing URLs
+Home-page: https://github.com/Dirty-World/Dirty-Launderer
+Author: Your Name
+Author-email: your@email.com
+License: MIT
+Project-URL: Bug Reports, https://github.com/gregmiller/Dirty-Launderer/issues
+Project-URL: Source, https://github.com/gregmiller/Dirty-Launderer
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Communications :: Chat
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: python-telegram-bot>=20.0
+Requires-Dist: google-cloud-secret-manager>=2.0.0
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.1.0; extra == "dev"
+Requires-Dist: pytest-mock>=3.12.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.21.1; extra == "dev"
+Requires-Dist: pytest-timeout>=2.2.0; extra == "dev"
+Requires-Dist: black>=23.0.0; extra == "dev"
+Requires-Dist: isort>=5.12.0; extra == "dev"
+Requires-Dist: mypy>=1.0.0; extra == "dev"
+Requires-Dist: flake8>=6.0.0; extra == "dev"
+Requires-Dist: build; extra == "dev"
+Requires-Dist: twine; extra == "dev"
+Provides-Extra: test
+Requires-Dist: pytest>=8.0.0; extra == "test"
+Requires-Dist: pytest-cov>=4.1.0; extra == "test"
+Requires-Dist: pytest-mock>=3.12.0; extra == "test"
+Requires-Dist: pytest-asyncio>=0.21.1; extra == "test"
+Requires-Dist: pytest-timeout>=2.2.0; extra == "test"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# Dirty Launderer Bot
+
+A Telegram bot for cleaning and sanitizing URLs, removing tracking parameters, and ensuring safe navigation.
+
+## Features
+
+- URL cleaning and sanitization
+- Tracking parameter removal
+- Rate limiting
+- PII detection and handling
+- Secure secret management
+- Health monitoring
+
+## Installation
+
+```bash
+pip install dirty-launderer-bot
+```
+
+For development:
+```bash
+pip install -e ".[dev]"
+```
+
+## Usage
+
+```python
+from bot import main
+
+# Run the bot
+main()
+```
+
+Or use the command-line interface:
+```bash
+dirty-launderer
+```
+
+## Development
+
+1. Clone the repository:
+```bash
+git clone https://github.com/gregmiller/Dirty-Launderer.git
+cd Dirty-Launderer/bot
+```
+
+2. Install development dependencies:
+```bash
+pip install -e ".[dev]"
+```
+
+3. Run tests:
+```bash
+pytest
+```
+
+## Configuration
+
+The bot requires the following environment variables:
+- `TELEGRAM_TOKEN`: Your Telegram bot token
+- `EXPECTED_WEBHOOK_URL`: The webhook URL for your bot
+- `ALERT_CHAT_ID`: Chat ID for admin alerts
+
+## License
+
+MIT License - see LICENSE file for details 

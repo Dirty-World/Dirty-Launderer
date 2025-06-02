@@ -20,6 +20,7 @@ def test_main_webhook_check(mock_post, mock_get):
     # Set up environment variables
     os.environ["TELEGRAM_TOKEN"] = "test_token"
     os.environ["EXPECTED_WEBHOOK_URL"] = "https://test.com/webhook"
+    os.environ["ALERT_CHAT_ID"] = "dummy_chat_id"  # Added for alert message
 
     # Create a mock request
     request = MagicMock()
@@ -30,7 +31,22 @@ def test_main_webhook_check(mock_post, mock_get):
     # Verify the response
     assert response[1] == 200
     assert "status" in response[0]
+    assert response[0]["status"] == "updated"
 
     # Verify the API calls
     mock_get.assert_called_once()
-    mock_post.assert_called_once() 
+    assert mock_post.call_count == 2  # Expect two calls: setWebhook and sendMessage
+
+    # Verify first call is for setWebhook
+    mock_post.assert_any_call(
+        'https://api.telegram.org/bottest_token/setWebhook',
+        json={'url': 'https://test.com/webhook', 'allowed_updates': ['message', 'callback_query'], 'max_connections': 100},
+        timeout=10
+    )
+
+    # Verify second call is for sendMessage
+    mock_post.assert_any_call(
+        'https://api.telegram.org/bottest_token/sendMessage',
+        data={'chat_id': 'dummy_chat_id', 'text': '[The Dirty Launderer Webhook] Webhook successfully updated to: https://test.com/webhook'},
+        timeout=10
+    ) 

@@ -112,12 +112,13 @@ def test_webhook_check_invalid_url(mock_get):
     mock_get.return_value.raise_for_status = MagicMock()
 
     os.environ["TELEGRAM_TOKEN"] = "test_token"
-    os.environ["EXPECTED_WEBHOOK_URL"] = "https://test.com/webhook"
+    os.environ["EXPECTED_WEBHOOK_URL"] = "invalid_url"
 
     request = MagicMock()
     response = main(request)
-    assert response[1] == 200
-    assert "status" in response[0]
+    assert response[1] == 500
+    assert "error" in response[0]
+    assert "Invalid EXPECTED_WEBHOOK_URL format" in response[0]["error"]
 
 @patch("bot.webhook_check_function.requests.get")
 def test_webhook_check_api_error(mock_get):

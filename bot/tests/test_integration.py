@@ -3,7 +3,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 import json
 from bot.main import main
-from webhook_check_function import main as webhook_check
+from bot.webhook_check_function import main as webhook_check
 
 @pytest.fixture
 def mock_env_vars():

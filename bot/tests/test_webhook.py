@@ -15,6 +15,13 @@ def mock_env_vars():
     del os.environ["EXPECTED_WEBHOOK_URL"]
     del os.environ["ALERT_CHAT_ID"]
 
+@pytest.fixture
+def mock_secret_manager():
+    """Mock the Secret Manager to return a dummy token."""
+    with patch('bot.webhook_check_function.get_secret') as mock_get_secret:
+        mock_get_secret.return_value = "dummy_token"
+        yield mock_get_secret
+
 def test_is_valid_url():
     """Test URL validation."""
     assert is_valid_url("https://test.com/webhook")
@@ -27,22 +34,16 @@ def test_is_valid_url():
 def test_send_alert_success(mock_post, mock_env_vars):
     """Test successful alert sending."""
     mock_post.return_value.raise_for_status = MagicMock()
-    
-    send_alert("test_token", "123456", "Test message")
-    
+    send_alert("Test message")
     mock_post.assert_called_once()
     args = mock_post.call_args
-    assert args[1]["json"]["chat_id"] == "123456"
-    assert "Test message" in args[1]["json"]["text"]
+    assert "Test message" in args[1]["data"]["text"]
 
 @patch("webhook_check_function.requests.post")
 def test_send_alert_failure(mock_post, mock_env_vars):
     """Test alert sending failure."""
     mock_post.side_effect = Exception("Network error")
-    
-    # Should not raise exception
-    send_alert("test_token", "123456", "Test message")
-    
+    send_alert("Test message")
     mock_post.assert_called_once()
 
 @patch("webhook_check_function.requests.get")
@@ -64,7 +65,12 @@ def test_webhook_check_success(mock_post, mock_get, mock_env_vars):
     assert response[1] == 200
     assert response[0]["status"] == "updated"
     mock_get.assert_called_once()
-    mock_post.assert_called_once()
+    assert mock_post.call_count == 2
+    # Check the first call is to setWebhook, the second is to sendMessage
+    set_webhook_call = mock_post.call_args_list[0]
+    send_alert_call = mock_post.call_args_list[1]
+    assert "setWebhook" in set_webhook_call[0][0]
+    assert "sendMessage" in send_alert_call[0][0]
 
 @patch("webhook_check_function.requests.get")
 def test_webhook_check_already_set(mock_get, mock_env_vars):

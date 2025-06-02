@@ -43,9 +43,14 @@ def send_alert(message):
 def main(request):
     """Cloud Function entry point for webhook check."""
     try:
-        # Fetch the token from Secret Manager
-        project_id = os.environ.get('GCP_PROJECT_ID')
-        token = get_secret(project_id, "TELEGRAM_BOT_TOKEN")
+        # Get token from environment variable first, then try Secret Manager
+        token = os.environ.get('TELEGRAM_TOKEN')
+        if not token:
+            # Only try Secret Manager if not in test environment
+            project_id = os.environ.get('GCP_PROJECT_ID')
+            if project_id:
+                token = get_secret(project_id, "TELEGRAM_BOT_TOKEN")
+        
         expected_url = os.environ.get('EXPECTED_WEBHOOK_URL')
         alert_chat_id = os.environ.get('ALERT_CHAT_ID')
 

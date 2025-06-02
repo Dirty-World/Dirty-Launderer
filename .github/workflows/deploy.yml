@@ -53,16 +53,19 @@ jobs:
 
     - name: Zip bot source code
       run: |
+        echo "Starting bot source code packaging..."
         mkdir -p dist
         if [ ! -d "bot" ]; then
           echo "Error: bot directory not found"
           exit 1
         fi
+        echo "Found bot directory, creating zip archive..."
         cd bot && zip -r ../dist/bot-source.zip .
         if [ ! -f "../dist/bot-source.zip" ]; then
           echo "Error: Failed to create bot-source.zip"
           exit 1
         fi
+        echo "Successfully created bot-source.zip"
 
     - name: Authenticate to Google Cloud
       uses: google-github-actions/auth@v1
@@ -76,13 +79,65 @@ jobs:
     - name: Get All Secrets from Secret Manager
       id: get-secrets
       run: |
+        echo "Fetching secrets from Secret Manager..."
+        echo "Checking GCP project configuration..."
+        gcloud config list
+        
+        echo "Listing available secrets..."
+        gcloud secrets list
+        
+        echo "Attempting to access secrets..."
         # Get all required secrets from Secret Manager
-        echo "GCP_PROJECT_ID=$(gcloud secrets versions access latest --secret=GCP_PROJECT_ID)" >> $GITHUB_ENV
-        echo "GCS_BUCKET_NAME=$(gcloud secrets versions access latest --secret=GCS_BUCKET_NAME)" >> $GITHUB_ENV
-        echo "GITHUB_PAT=$(gcloud secrets versions access latest --secret=GITHUB_TOKEN)" >> $GITHUB_ENV
+        GCP_PROJECT_ID=$(gcloud secrets versions access latest --secret=GCP_PROJECT_ID)
+        GCS_BUCKET_NAME=$(gcloud secrets versions access latest --secret=GCS_BUCKET_NAME)
+        GITHUB_PAT=$(gcloud secrets versions access latest --secret=GITHUB_DEPLOYMENT_TOKEN)
+        
+        # Verify secrets are not empty
+        if [ -z "$GCP_PROJECT_ID" ]; then
+          echo "Error: GCP_PROJECT_ID is empty"
+          exit 1
+        fi
+        if [ -z "$GCS_BUCKET_NAME" ]; then
+          echo "Error: GCS_BUCKET_NAME is empty"
+          exit 1
+        fi
+        if [ -z "$GITHUB_PAT" ]; then
+          echo "Error: GITHUB_DEPLOYMENT_TOKEN is empty"
+          exit 1
+        fi
+        
+        # Set environment variables
+        echo "GCP_PROJECT_ID=$GCP_PROJECT_ID" >> $GITHUB_ENV
+        echo "GCS_BUCKET_NAME=$GCS_BUCKET_NAME" >> $GITHUB_ENV
+        echo "GITHUB_PAT=$GITHUB_PAT" >> $GITHUB_ENV
+        
+        echo "Successfully retrieved and verified secrets"
+        echo "GCP Project ID length: ${#GCP_PROJECT_ID}"
+        echo "GCS Bucket Name length: ${#GCS_BUCKET_NAME}"
+        echo "GitHub PAT length: ${#GITHUB_PAT}"
 
     - name: Upload bot source to GCS
-      run: gsutil cp dist/bot-source.zip gs://${{ env.GCS_BUCKET_NAME }}/
+      run: |
+        echo "Uploading bot source to GCS..."
+        if ! gsutil cp dist/bot-source.zip gs://${{ env.GCS_BUCKET_NAME }}/; then
+          echo "Error: Failed to upload bot-source.zip to GCS"
+          exit 1
+        fi
+        echo "Successfully uploaded bot-source.zip to GCS"
+
+    - name: Verify GitHub Token
+      run: |
+        echo "Verifying GitHub token permissions..."
+        if [ -z "${{ env.GITHUB_PAT }}" ]; then
+          echo "Error: GitHub PAT is empty"
+          exit 1
+        fi
+        # Test token permissions
+        if ! curl -s -H "Authorization: token ${{ env.GITHUB_PAT }}" https://api.github.com/user | grep -q "login"; then
+          echo "Error: GitHub token is invalid or has insufficient permissions"
+          exit 1
+        fi
+        echo "GitHub token verified successfully"
 
     - name: Trigger Infrastructure Deployment
       uses: peter-evans/repository-dispatch@v2
@@ -101,4 +156,8 @@ jobs:
 
     - name: Notify on Failure
       if: failure()
-      run: echo "Deployment failed. Please check the logs."
+      run: |
+        echo "Deployment failed. Please check the logs."
+        echo "Last successful step: ${{ steps.*.outcome }}"
+        echo "GitHub Token Status: ${{ steps.verify-token.outcome }}"
+        echo "Repository Dispatch Status: ${{ steps.trigger-deploy.outcome }}"

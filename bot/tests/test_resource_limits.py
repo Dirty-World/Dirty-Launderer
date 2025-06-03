@@ -147,14 +147,39 @@ class TestResourceLimits:
         """Test that function deployment package stays small."""
         import os
         from pathlib import Path
-        
+
         # Get size of bot directory
         bot_dir = Path(__file__).parent.parent
         total_size = 0
-        for path in bot_dir.rglob('*'):
-            if path.is_file() and not any(part.startswith('.') for part in path.parts):
-                total_size += path.stat().st_size
         
+        # Files to exclude
+        exclude_patterns = [
+            'venv*',  # Virtual environments
+            '__pycache__',  # Python cache
+            '.pytest_cache',  # Pytest cache
+            '.coverage',  # Coverage files
+            'coverage.xml',
+            '*.egg-info',  # Package metadata
+            '.env*',  # Environment files
+            '.vscode',  # IDE files
+            '.idea',
+            '*.log',  # Log files
+            'scripts',  # Development scripts
+            'run_check.ps1',  # Development scripts
+            'tests',  # Test files
+            'dist',  # Build artifacts
+        ]
+        
+        for path in bot_dir.rglob('*'):
+            if path.is_file():
+                # Skip excluded files
+                if any(pattern in str(path) for pattern in exclude_patterns):
+                    continue
+                # Skip hidden files
+                if any(part.startswith('.') for part in path.parts):
+                    continue
+                total_size += path.stat().st_size
+
         size_mb = total_size / (1024 * 1024)
         # Cloud Functions has a 100MB limit, but we should stay well under
         assert size_mb < 50, f"Function size ({size_mb}MB) is too large for efficient deployment" 

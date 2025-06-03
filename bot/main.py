@@ -219,6 +219,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # For now, just send a placeholder message
             msg = await update.message.reply_text('URL cleaning functionality coming soon!')
             context.application.create_task(delete_message_after_delay(context, update.message.chat_id, msg.message_id))
+    except Exception as e:
+        logger.error(f"Error processing message: {str(e)}")
+        return jsonify({"error": "Failed to process message"}), 400
     finally:
         cleanup_session()
 

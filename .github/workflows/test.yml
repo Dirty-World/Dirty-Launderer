@@ -58,6 +58,10 @@ jobs:
         # Set environment variables
         echo "CODECOV_TOKEN=$CODECOV_TOKEN" >> $GITHUB_ENV
         echo "GITHUB_PAT=$GITHUB_PAT" >> $GITHUB_ENV
+        
+        # Store values for later use
+        echo "codecov_token=$CODECOV_TOKEN" >> $GITHUB_OUTPUT
+        echo "github_pat=$GITHUB_PAT" >> $GITHUB_OUTPUT
 
     - name: Run tests with coverage
       id: run-tests
@@ -70,7 +74,7 @@ jobs:
       with:
         file: ./bot/coverage.xml
         fail_ci_if_error: true
-        token: ${{ env.CODECOV_TOKEN }}
+        token: ${{ steps.setup-env.outputs.codecov_token }}
 
     - name: Store Test Logs
       if: always()
@@ -80,7 +84,7 @@ jobs:
         STATUS=${{ job.status }}
         
         # Clone dirty-secrets repository
-        git clone https://x-access-token:${{ env.GITHUB_PAT }}@github.com/Dirty-World/Dirty-Secrets.git
+        git clone https://x-access-token:${{ steps.setup-env.outputs.github_pat }}@github.com/Dirty-World/Dirty-Secrets.git
         cd Dirty-Secrets
         
         # Create log directory if it doesn't exist

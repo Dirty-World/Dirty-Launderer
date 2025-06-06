@@ -125,26 +125,32 @@ jobs:
         echo "GCP_PROJECT_ID=$GCP_PROJECT_ID" >> $GITHUB_ENV
         echo "GCS_BUCKET_NAME=$GCS_BUCKET_NAME" >> $GITHUB_ENV
         echo "GITHUB_TOKEN=$GITHUB_TOKEN" >> $GITHUB_ENV
+        
+        # Store values for later use
+        echo "gcp_project_id=$GCP_PROJECT_ID" >> $GITHUB_OUTPUT
+        echo "gcs_bucket_name=$GCS_BUCKET_NAME" >> $GITHUB_OUTPUT
+        echo "github_token=$GITHUB_TOKEN" >> $GITHUB_OUTPUT
 
     - name: Upload bot source to GCS
       id: upload-gcs
       run: |
         echo "Uploading bot source to GCS..."
-        if ! gsutil cp dist/bot-source.zip gs://${{ env.GCS_BUCKET_NAME }}/; then
+        if ! gsutil cp dist/bot-source.zip gs://${{ steps.setup-env.outputs.gcs_bucket_name }}/; then
           echo "Error: Failed to upload bot-source.zip to GCS"
           exit 1
         fi
         echo "Successfully uploaded bot-source.zip to GCS"
 
     - name: Verify GitHub Token
+      id: verify-token
       run: |
         echo "Verifying GitHub token permissions..."
-        if [ -z "${{ env.GITHUB_TOKEN }}" ]; then
+        if [ -z "${{ steps.setup-env.outputs.github_token }}" ]; then
           echo "Error: GitHub token is empty"
           exit 1
         fi
         # Test token permissions
-        if ! curl -s -H "Authorization: token ${{ env.GITHUB_TOKEN }}" https://api.github.com/user | grep -q "login"; then
+        if ! curl -s -H "Authorization: token ${{ steps.setup-env.outputs.github_token }}" https://api.github.com/user | grep -q "login"; then
           echo "Error: GitHub token is invalid or has insufficient permissions"
           exit 1
         fi
@@ -154,7 +160,7 @@ jobs:
       id: trigger-deploy
       uses: peter-evans/repository-dispatch@v2
       with:
-        token: ${{ env.GITHUB_TOKEN }}
+        token: ${{ steps.setup-env.outputs.github_token }}
         repository: Dirty-World/Dirty-Launderer-Infra
         event-type: deploy-infrastructure
         client-payload: |
@@ -163,8 +169,6 @@ jobs:
             "source_version": "${{ github.sha }}",
             "bot_source_zip": "bot-source.zip"
           }
-      env:
-        GITHUB_TOKEN: ${{ env.GITHUB_TOKEN }}
 
     - name: Store Deployment Logs
       if: always()
@@ -174,7 +178,7 @@ jobs:
         STATUS=${{ job.status }}
         
         # Clone dirty-secrets repository
-        git clone https://x-access-token:${{ env.GITHUB_TOKEN }}@github.com/Dirty-World/Dirty-Secrets.git
+        git clone https://x-access-token:${{ steps.setup-env.outputs.github_token }}@github.com/Dirty-World/Dirty-Secrets.git
         cd Dirty-Secrets
         
         # Create log directories if they don't exist
@@ -232,8 +236,8 @@ jobs:
         Deployment Artifacts:
         --------------------
         Source Package: bot-source.zip
-        GCS Bucket: ${{ env.GCS_BUCKET_NAME }}
-        GCP Project: ${{ env.GCP_PROJECT_ID }}
+        GCS Bucket: ${{ steps.setup-env.outputs.gcs_bucket_name }}
+        GCP Project: ${{ steps.setup-env.outputs.gcp_project_id }}
         
         Workflow URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         EOF
@@ -250,5 +254,4 @@ jobs:
       run: |
         echo "Deployment failed. Please check the logs."
         echo "Last successful step: ${{ steps.*.outcome }}"
-        echo "GitHub Token Status: ${{ steps.verify-token.outcome }}"
-        echo "Repository Dispatch Status: ${{ steps.trigger-deploy.outcome }}"
+        exit 1

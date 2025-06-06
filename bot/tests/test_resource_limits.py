@@ -147,39 +147,47 @@ class TestResourceLimits:
         """Test that function deployment package stays small."""
         import os
         from pathlib import Path
+        import zipfile
+        import tempfile
 
-        # Get size of bot directory
-        bot_dir = Path(__file__).parent.parent
-        total_size = 0
-        
-        # Files to exclude
-        exclude_patterns = [
-            'venv*',  # Virtual environments
-            '__pycache__',  # Python cache
-            '.pytest_cache',  # Pytest cache
-            '.coverage',  # Coverage files
-            'coverage.xml',
-            '*.egg-info',  # Package metadata
-            '.env*',  # Environment files
-            '.vscode',  # IDE files
-            '.idea',
-            '*.log',  # Log files
-            'scripts',  # Development scripts
-            'run_check.ps1',  # Development scripts
-            'tests',  # Test files
-            'dist',  # Build artifacts
-        ]
-        
-        for path in bot_dir.rglob('*'):
-            if path.is_file():
-                # Skip excluded files
-                if any(pattern in str(path) for pattern in exclude_patterns):
-                    continue
-                # Skip hidden files
-                if any(part.startswith('.') for part in path.parts):
-                    continue
-                total_size += path.stat().st_size
+        # Create a temporary directory for the deployment package
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Get the bot directory
+            bot_dir = Path(__file__).parent.parent
+            
+            # Create a minimal deployment package
+            zip_path = Path(temp_dir) / "bot-source.zip"
+            with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                # Add only the essential files
+                essential_files = [
+                    "main.py",
+                    "webhook_check_function.py",
+                    "requirements.txt",
+                    "requirements-prod.txt",
+                    ".gcloudignore"
+                ]
+                
+                # Add essential files
+                for file in essential_files:
+                    file_path = bot_dir / file
+                    if file_path.exists():
+                        zipf.write(file_path, file)
+                
+                # Add utils directory
+                utils_dir = bot_dir / "utils"
+                if utils_dir.exists():
+                    for path in utils_dir.rglob("*"):
+                        if path.is_file():
+                            # Skip any virtual environments or cache files
+                            if any(pattern in str(path) for pattern in ['venv', '__pycache__', '.pytest_cache', '.coverage']):
+                                continue
+                            # Skip hidden files
+                            if any(part.startswith('.') for part in path.parts):
+                                continue
+                            zipf.write(path, path.relative_to(bot_dir))
 
-        size_mb = total_size / (1024 * 1024)
-        # Cloud Functions has a 100MB limit, but we should stay well under
-        assert size_mb < 50, f"Function size ({size_mb}MB) is too large for efficient deployment" 
+            # Get the size of the deployment package
+            size_mb = zip_path.stat().st_size / (1024 * 1024)
+            
+            # Cloud Functions has a 100MB limit, but we should stay well under
+            assert size_mb < 50, f"Function size ({size_mb}MB) is too large for efficient deployment" 

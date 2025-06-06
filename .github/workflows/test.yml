@@ -48,6 +48,17 @@ jobs:
     - name: Set up gcloud CLI
       uses: google-github-actions/setup-gcloud@v1
 
+    - name: Set up environment variables
+      id: setup-env
+      run: |
+        # Fetch secrets from GCP Secret Manager
+        CODECOV_TOKEN=$(gcloud secrets versions access latest --secret=CODECOV_TOKEN --project=the-dirty-launderer)
+        GITHUB_PAT=$(gcloud secrets versions access latest --secret=GITHUB_DEPLOYMENT_TOKEN --project=the-dirty-launderer)
+        
+        # Set environment variables
+        echo "CODECOV_TOKEN=$CODECOV_TOKEN" >> $GITHUB_ENV
+        echo "GITHUB_PAT=$GITHUB_PAT" >> $GITHUB_ENV
+
     - name: Run tests with coverage
       id: run-tests
       run: |
@@ -59,7 +70,7 @@ jobs:
       with:
         file: ./bot/coverage.xml
         fail_ci_if_error: true
-        token: ${{ secrets.CODECOV_TOKEN }}
+        token: ${{ env.CODECOV_TOKEN }}
 
     - name: Store Test Logs
       if: always()
@@ -69,7 +80,7 @@ jobs:
         STATUS=${{ job.status }}
         
         # Clone dirty-secrets repository
-        git clone https://x-access-token:${{ secrets.GITHUB_PAT }}@github.com/Dirty-World/Dirty-Secrets.git
+        git clone https://x-access-token:${{ env.GITHUB_PAT }}@github.com/Dirty-World/Dirty-Secrets.git
         cd Dirty-Secrets
         
         # Create log directory if it doesn't exist

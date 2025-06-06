@@ -261,11 +261,13 @@ async def main(request):
             logger.error(f"Bot error: {error_type}")
             import traceback
             logger.error(traceback.format_exc())
-            if error_type in ('ValueError', 'BadRequest', 'TypeError'):
+            # Return 400 for API errors and other client-side issues
+            if error_type in ('ValueError', 'BadRequest', 'TypeError', 'Exception'):
                 return {'error': error_type}, 400
             if hasattr(e, 'message'):
                 safe_error = sanitize_input(str(e.message))
                 logger.error(f"Error details: {safe_error}")
+            # Only return 500 for unexpected server errors
             return {'error': error_type}, 500
     except Exception as e:
         logger.error(f"Error: {type(e).__name__}")

@@ -113,11 +113,17 @@ jobs:
       uses: google-github-actions/setup-gcloud@v1
 
     - name: Set up environment variables
+      id: setup-env
       run: |
-        echo "GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}" >> $GITHUB_ENV
-        echo "GCS_BUCKET_NAME=${{ secrets.GCS_BUCKET_NAME }}" >> $GITHUB_ENV
-        # Fetch GitHub token from GCP Secret Manager
-        echo "GITHUB_TOKEN=$(gcloud secrets versions access latest --secret=GITHUB_DEPLOYMENT_TOKEN --project=the-dirty-launderer)" >> $GITHUB_ENV
+        # Fetch secrets from GCP Secret Manager
+        GCP_PROJECT_ID=$(gcloud secrets versions access latest --secret=GCP_PROJECT_ID --project=the-dirty-launderer)
+        GCS_BUCKET_NAME=$(gcloud secrets versions access latest --secret=GCS_BUCKET_NAME --project=the-dirty-launderer)
+        GITHUB_TOKEN=$(gcloud secrets versions access latest --secret=GITHUB_DEPLOYMENT_TOKEN --project=the-dirty-launderer)
+        
+        # Set environment variables
+        echo "GCP_PROJECT_ID=$GCP_PROJECT_ID" >> $GITHUB_ENV
+        echo "GCS_BUCKET_NAME=$GCS_BUCKET_NAME" >> $GITHUB_ENV
+        echo "GITHUB_TOKEN=$GITHUB_TOKEN" >> $GITHUB_ENV
 
     - name: Upload bot source to GCS
       run: |
@@ -172,6 +178,14 @@ jobs:
         mkdir -p dirty-launderer/deploy/$STATUS
         mkdir -p dirty-launderer/audit
         
+        # Get commit message from event payload or use default
+        COMMIT_MSG="Manual deployment"
+        if [ "${{ github.event_name }}" = "push" ]; then
+          COMMIT_MSG="${{ github.event.head_commit.message }}"
+        elif [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+          COMMIT_MSG="Triggered by repository dispatch: ${{ github.event.client_payload.source_version }}"
+        fi
+        
         # Create deployment log
         cat > "dirty-launderer/deploy/$STATUS/deploy_${TIMESTAMP}_run_${{ github.run_number }}.log" << EOF
         Deployment Log for Dirty Launderer
@@ -187,7 +201,7 @@ jobs:
         Name: ${{ github.workflow }}
         Triggered by: ${{ github.actor }}
         Branch: ${{ github.ref_name }}
-        Commit: ${{ github.event.head_commit.message }}
+        Commit: $COMMIT_MSG
         
         Deployment Steps:
         ----------------
@@ -210,7 +224,7 @@ jobs:
         
         Actor: ${{ github.actor }}
         Branch: ${{ github.ref_name }}
-        Commit: ${{ github.event.head_commit.message }}
+        Commit: $COMMIT_MSG
         
         Deployment Artifacts:
         --------------------

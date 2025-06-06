@@ -84,15 +84,29 @@ jobs:
         done
         
         # Create minimal deployment package
-        zip -r ../dist/bot-source.zip main.py webhook_check_function.py utils/ requirements.txt requirements-prod.txt .gcloudignore
+        # First, create a temporary directory for the deployment files
+        mkdir -p ../dist/temp
+        cp main.py webhook_check_function.py requirements.txt requirements-prod.txt .gcloudignore ../dist/temp/
+        cp -r utils ../dist/temp/
         
-        if [ ! -f "../dist/bot-source.zip" ]; then
+        # Remove any virtual environments or cache directories that might have been copied
+        find ../dist/temp -type d -name "venv*" -exec rm -rf {} +
+        find ../dist/temp -type d -name "__pycache__" -exec rm -rf {} +
+        find ../dist/temp -type d -name ".pytest_cache" -exec rm -rf {} +
+        find ../dist/temp -type d -name ".coverage" -exec rm -rf {} +
+        
+        # Create the zip file from the cleaned temporary directory
+        cd ../dist/temp
+        zip -r ../bot-source.zip .
+        cd ../..
+        
+        if [ ! -f "dist/bot-source.zip" ]; then
           echo "Error: Failed to create bot-source.zip"
           exit 1
         fi
         
         # Verify package size
-        size_mb=$(du -m "../dist/bot-source.zip" | cut -f1)
+        size_mb=$(du -m "dist/bot-source.zip" | cut -f1)
         if [ "$size_mb" -gt 50 ]; then
           echo "Error: Package size ($size_mb MB) exceeds 50MB limit"
           exit 1
@@ -100,7 +114,7 @@ jobs:
         
         # Verify package contents
         echo "Verifying package contents..."
-        unzip -l "../dist/bot-source.zip" | grep -E "main.py|webhook_check_function.py|utils/|requirements.txt|requirements-prod.txt|.gcloudignore"
+        unzip -l "dist/bot-source.zip" | grep -E "main.py|webhook_check_function.py|utils/|requirements.txt|requirements-prod.txt|.gcloudignore"
         
         echo "Successfully created minimal bot-source.zip (${size_mb}MB)"
 

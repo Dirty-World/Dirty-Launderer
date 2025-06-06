@@ -116,7 +116,8 @@ jobs:
       run: |
         echo "GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}" >> $GITHUB_ENV
         echo "GCS_BUCKET_NAME=${{ secrets.GCS_BUCKET_NAME }}" >> $GITHUB_ENV
-        echo "GITHUB_TOKEN=${{ secrets.GITHUB_DEPLOYMENT_TOKEN }}" >> $GITHUB_ENV
+        # Fetch GitHub token from GCP Secret Manager
+        echo "GITHUB_TOKEN=$(gcloud secrets versions access latest --secret=GITHUB_DEPLOYMENT_TOKEN --project=the-dirty-launderer)" >> $GITHUB_ENV
 
     - name: Upload bot source to GCS
       run: |

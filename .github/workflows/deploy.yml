@@ -189,8 +189,8 @@ jobs:
         COMMIT_MSG="Manual deployment"
         if [ "${{ github.event_name }}" = "push" ]; then
           COMMIT_MSG="${{ github.event.head_commit.message }}"
-        elif [ "${{ github.event_name }}" = "repository_dispatch" ]; then
-          COMMIT_MSG="Triggered by repository dispatch: ${{ github.event.client_payload.source_version }}"
+        elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          COMMIT_MSG="Manual deployment triggered by ${{ github.actor }}"
         fi
         
         # Create deployment log

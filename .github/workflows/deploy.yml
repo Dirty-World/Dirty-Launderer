@@ -52,6 +52,7 @@ jobs:
         fi
 
     - name: Zip bot source code
+      id: zip-bot
       run: |
         echo "Starting bot source code packaging..."
         mkdir -p dist
@@ -126,6 +127,7 @@ jobs:
         echo "GITHUB_TOKEN=$GITHUB_TOKEN" >> $GITHUB_ENV
 
     - name: Upload bot source to GCS
+      id: upload-gcs
       run: |
         echo "Uploading bot source to GCS..."
         if ! gsutil cp dist/bot-source.zip gs://${{ env.GCS_BUCKET_NAME }}/; then
@@ -149,6 +151,7 @@ jobs:
         echo "GitHub token verified successfully"
 
     - name: Trigger Infrastructure Deployment
+      id: trigger-deploy
       uses: peter-evans/repository-dispatch@v2
       with:
         token: ${{ env.GITHUB_TOKEN }}

@@ -49,13 +49,90 @@ jobs:
       uses: google-github-actions/setup-gcloud@v1
 
     - name: Run tests with coverage
+      id: run-tests
       run: |
         cd bot
-        PYTHONPATH=$PYTHONPATH:$(pwd) pytest --cov --cov-branch --cov-report=xml
+        PYTHONPATH=$PYTHONPATH:$(pwd) pytest --cov --cov-branch --cov-report=xml --junitxml=test-results.xml
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
       with:
         file: ./bot/coverage.xml
         fail_ci_if_error: true
-        token: ${{ secrets.CODECOV_TOKEN }} 
+        token: ${{ secrets.CODECOV_TOKEN }}
+
+    - name: Store Test Logs
+      if: always()
+      run: |
+        # Set up timestamp
+        TIMESTAMP=$(date +'%Y%m%d_%H%M%S')
+        STATUS=${{ job.status }}
+        
+        # Clone dirty-secrets repository
+        git clone https://x-access-token:${{ secrets.GITHUB_PAT }}@github.com/Dirty-World/Dirty-Secrets.git
+        cd Dirty-Secrets
+        
+        # Create log directory if it doesn't exist
+        mkdir -p dirty-launderer/maintenance/$STATUS
+        
+        # Create test log
+        cat > "dirty-launderer/maintenance/$STATUS/test_${TIMESTAMP}_run_${{ github.run_number }}.log" << EOF
+        Test Log for Dirty Launderer
+        ==========================
+        Timestamp: $(date)
+        Workflow Run ID: ${{ github.run_id }}
+        Run Number: ${{ github.run_number }}
+        Status: $STATUS
+        Trigger: ${{ github.event_name }}
+        
+        Workflow Details:
+        ----------------
+        Name: ${{ github.workflow }}
+        Triggered by: ${{ github.actor }}
+        Branch: ${{ github.ref_name }}
+        Commit: ${{ github.event.head_commit.message }}
+        
+        Test Results:
+        ------------
+        Test Status: ${{ steps.run-tests.outcome }}
+        Coverage Report: coverage.xml
+        Test Results: test-results.xml
+        
+        Workflow URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        EOF
+        
+        # Create audit log
+        cat > "dirty-launderer/audit/test_audit_${TIMESTAMP}.log" << EOF
+        Test Audit Log for Dirty Launderer
+        ===============================
+        Timestamp: $(date)
+        Workflow Run ID: ${{ github.run_id }}
+        Run Number: ${{ github.run_number }}
+        Status: $STATUS
+        Trigger: ${{ github.event_name }}
+        
+        Actor: ${{ github.actor }}
+        Branch: ${{ github.ref_name }}
+        Commit: ${{ github.event.head_commit.message }}
+        
+        Test Details:
+        ------------
+        Python Version: 3.11
+        Test Framework: pytest
+        Coverage Tool: pytest-cov
+        Codecov Integration: Enabled
+        
+        Workflow URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        EOF
+        
+        # Copy test artifacts
+        mkdir -p "dirty-launderer/maintenance/$STATUS/artifacts_${TIMESTAMP}"
+        cp ../bot/coverage.xml "dirty-launderer/maintenance/$STATUS/artifacts_${TIMESTAMP}/"
+        cp ../bot/test-results.xml "dirty-launderer/maintenance/$STATUS/artifacts_${TIMESTAMP}/"
+        
+        # Commit and push logs
+        git config --global user.name 'GitHub Actions'
+        git config --global user.email 'actions@github.com'
+        git add .
+        git commit -m "Add test logs for Dirty Launderer run ${{ github.run_number }}"
+        git push 

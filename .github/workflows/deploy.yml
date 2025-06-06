@@ -168,8 +168,9 @@ jobs:
         git clone https://x-access-token:${{ env.GITHUB_TOKEN }}@github.com/Dirty-World/Dirty-Secrets.git
         cd Dirty-Secrets
         
-        # Create log directory if it doesn't exist
+        # Create log directories if they don't exist
         mkdir -p dirty-launderer/deploy/$STATUS
+        mkdir -p dirty-launderer/audit
         
         # Create deployment log
         cat > "dirty-launderer/deploy/$STATUS/deploy_${TIMESTAMP}_run_${{ github.run_number }}.log" << EOF

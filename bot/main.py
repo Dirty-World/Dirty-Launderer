@@ -13,7 +13,7 @@ import re
 import html
 from utils.secret_manager import get_secret
 import asyncio
-from flask import Flask, request
+from flask import Flask, request, jsonify
 from utils.rate_limiter import check_rate_limit
 from utils.input_sanitizer import sanitize_input, get_safe_domain
 from utils.alert import send_alert
@@ -320,35 +320,29 @@ async def process_update(request_json):
             await application.shutdown()
 
 @app.route('/', methods=['POST'])
-def main(request):
+async def main(request):
     """Main entry point for the Cloud Function."""
     try:
         # Validate request method
         if request.method != "POST":
-            logger.error(f"Invalid request method: {request.method}")
-            return ({"error": "Method not allowed"}, 405)
+            return jsonify({"error": "Method not allowed"}), 405
 
-        # Parse request JSON
+        # Parse JSON
         try:
-            request_json = request.get_json()
+            update = request.get_json()
         except Exception as e:
-            logger.error(f"Invalid JSON: {str(e)}")
-            return ({"error": "Invalid JSON"}, 400)
+            logger.error(f"Failed to parse JSON: {str(e)}")
+            return jsonify({"error": "Invalid JSON"}), 400
 
-        # Create event loop for async operations
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+        # Process update
         try:
-            # Process update
-            result = loop.run_until_complete(process_update(request_json))
-            return result
+            response = await process_update(update)
+            return jsonify(response), 200
         except Exception as e:
-            logger.error(f"Error processing update: {type(e).__name__}: {str(e)}")
-            return ({"error": "Bad request"}, 400)
-        finally:
-            # Clean up event loop
-            loop.close()
+            logger.error(f"Error processing update: {str(e)}")
+            return jsonify({"error": "Internal server error"}), 500
+
     except Exception as e:
-        logger.error(f"Unexpected error: {type(e).__name__}: {str(e)}")
-        return ({"error": "Bad request"}, 400)
+        logger.error(f"Unexpected error: {str(e)}")
+        return jsonify({"error": "Internal server error"}), 500
 

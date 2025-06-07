@@ -3,7 +3,7 @@ import json
 import logging
 from telegram import Update, Bot
 from telegram.constants import ParseMode
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters, ApplicationHandlerStop
 import hashlib
 from urllib.parse import urlparse
 import gc
@@ -221,7 +221,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.application.create_task(delete_message_after_delay(context, update.message.chat_id, msg.message_id))
     except Exception as e:
         logger.error(f"Error processing message: {str(e)}")
-        return jsonify({"error": "Failed to process message"}), 400
+        if update.message:
+            try:
+                msg = await update.message.reply_text("Sorry, I encountered an error processing your message.")
+                context.application.create_task(delete_message_after_delay(context, update.message.chat_id, msg.message_id))
+            except Exception as reply_error:
+                logger.error(f"Error sending error message: {str(reply_error)}")
     finally:
         cleanup_session()
 

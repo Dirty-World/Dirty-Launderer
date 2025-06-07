@@ -226,19 +226,32 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         cleanup_session()
 
 async def process_update(request_json):
-    token = get_telegram_token()
-    bot = Bot(token=token)
-    application = ApplicationBuilder().token(token).build()
-    # Register handlers
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("help", help_command))
-    application.add_handler(CommandHandler("privacy", privacy_command))
-    application.add_handler(CommandHandler("delete", delete_command))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    # Create update object
-    update = Update.de_json(request_json, bot)
-    # Process update
-    await application.process_update(update)
+    try:
+        token = get_telegram_token()
+        bot = Bot(token=token)
+        application = ApplicationBuilder().token(token).build()
+        
+        # Add error handler
+        async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+            """Handle errors in the application."""
+            logger.error(f"Error in handler: {context.error}")
+            raise context.error  # Re-raise to be handled by process_update
+        
+        # Register handlers
+        application.add_handler(CommandHandler("start", start))
+        application.add_handler(CommandHandler("help", help_command))
+        application.add_handler(CommandHandler("privacy", privacy_command))
+        application.add_handler(CommandHandler("delete", delete_command))
+        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+        application.add_error_handler(error_handler)
+        
+        # Create update object
+        update = Update.de_json(request_json, bot)
+        # Process update
+        await application.process_update(update)
+    except Exception as e:
+        logger.error(f"Error in process_update: {type(e).__name__}")
+        raise  # Re-raise to be handled by main function
 
 # Cloud Function entry point
 async def main(request):
@@ -271,6 +284,7 @@ async def main(request):
             return {'error': error_type}, 500
     except Exception as e:
         logger.error(f"Error: {type(e).__name__}")
-        return 'Error processing update', 500
+        # Return 400 for any unhandled exceptions in the main function
+        return {'error': type(e).__name__}, 400
     finally:
         cleanup_session()

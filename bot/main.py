@@ -259,11 +259,14 @@ async def process_update(request_json):
 async def main(request):
     try:
         if request.method != "POST":
-            return {"error": "Method not allowed"}, 405
+            logger.warning("Invalid request method")
+            return 'Only POST requests are accepted', 405
 
-        request_json = request.get_json()
-        if not request_json:
-            return {"error": "No JSON data"}, 400
+        try:
+            request_json = request.get_json(force=True)
+        except Exception as e:
+            logger.error(f"Error parsing JSON: {type(e).__name__}")
+            return {'error': 'BadRequest'}, 400
 
         try:
             await process_update(request_json)

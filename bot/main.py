@@ -13,6 +13,10 @@ import re
 import html
 from utils.secret_manager import get_secret
 import asyncio
+from flask import Flask, request
+from utils.rate_limiter import check_rate_limit
+from utils.input_sanitizer import sanitize_input, get_safe_domain
+from utils.alert import send_alert
 
 # Configure logging with minimal metadata
 logging.basicConfig(
@@ -27,6 +31,8 @@ rate_limit_store = defaultdict(list)
 
 # User consent store
 user_consent = set()
+
+app = Flask(__name__)
 
 def get_telegram_token():
     """Get the Telegram bot token from Secret Manager."""
@@ -267,51 +273,53 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         cleanup_session()
 
 async def process_update(request_json):
-    """Process a single update with proper initialization and cleanup."""
-    # Initialize application
-    application = ApplicationBuilder().token(get_telegram_token()).build()
-    
-    # Add handlers
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("help", help_command))
-    application.add_handler(CommandHandler("privacy", privacy_command))
-    application.add_handler(CommandHandler("delete", delete_command))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    
-    # Add error handler
-    async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """Handle errors in a user-friendly way."""
-        try:
-            logger.error(f"Error: {context.error}")
-            if update and update.effective_message:
-                try:
-                    msg = await update.effective_message.reply_text(
-                        "Sorry, something went wrong. Please try again later."
-                    )
-                    # Schedule message deletion
-                    asyncio.create_task(delete_message_after_delay(context, update.effective_message.chat_id, msg.message_id))
-                except Exception as e:
-                    logger.error(f"Error sending error message: {type(e).__name__}")
-        except Exception as e:
-            logger.error(f"Error in error handler: {type(e).__name__}")
-        finally:
-            cleanup_session()
-    
-    application.add_error_handler(error_handler)
-    
+    """Process a Telegram update."""
     try:
+        # Create application
+        application = ApplicationBuilder().token(get_secret("TELEGRAM_BOT_TOKEN")).build()
+        
+        # Add handlers
+        application.add_handler(CommandHandler("start", start))
+        application.add_handler(CommandHandler("privacy", privacy_command))
+        application.add_handler(CommandHandler("delete", delete_command))
+        application.add_handler(CommandHandler("help", help_command))
+        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+        
+        # Add error handler
+        async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+            """Handle errors in a user-friendly way."""
+            try:
+                logger.error(f"Error: {context.error}")
+                if update and update.effective_message:
+                    try:
+                        msg = await update.effective_message.reply_text(
+                            "Sorry, something went wrong. Please try again later."
+                        )
+                        # Schedule message deletion
+                        asyncio.create_task(delete_message_after_delay(context, update.effective_message.chat_id, msg.message_id))
+                    except Exception as e:
+                        logger.error(f"Error sending error message: {type(e).__name__}")
+            except Exception as e:
+                logger.error(f"Error in error handler: {type(e).__name__}")
+            finally:
+                cleanup_session()
+        
+        application.add_error_handler(error_handler)
+        
         # Process update
-        await application.initialize()
-        await application.process_update(Update.de_json(request_json, application.bot))
-        await application.shutdown()
+        update = Update.de_json(request_json, application.bot)
+        await application.process_update(update)
+        
+        return ({"status": "ok"}, 200)
     except Exception as e:
-        logger.error(f"Error processing update: {type(e).__name__}")
-        # Don't re-raise the exception, let the main function handle it
-        return {'error': type(e).__name__}, 400
+        logger.error(f"Error processing update: {type(e).__name__}: {str(e)}")
+        return ({"error": "Bad request"}, 400)
     finally:
-        cleanup_session()
+        # Clean up
+        if 'application' in locals():
+            await application.shutdown()
 
-# Cloud Function entry point
+@app.route('/', methods=['POST'])
 def main(request):
     """Main entry point for the Cloud Function."""
     try:
@@ -336,13 +344,11 @@ def main(request):
             return result
         except Exception as e:
             logger.error(f"Error processing update: {type(e).__name__}: {str(e)}")
-            # Return 400 for all client-side errors
             return ({"error": "Bad request"}, 400)
         finally:
             # Clean up event loop
             loop.close()
     except Exception as e:
         logger.error(f"Unexpected error: {type(e).__name__}: {str(e)}")
-        # Return 400 for all client-side errors
         return ({"error": "Bad request"}, 400)
 

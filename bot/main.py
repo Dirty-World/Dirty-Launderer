@@ -1,7 +1,8 @@
 import os
 import json
 import logging
-from telegram import Update, Bot
+import requests
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.constants import ParseMode
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters, ApplicationHandlerStop
 import hashlib
@@ -11,13 +12,12 @@ import time
 from collections import defaultdict
 import re
 import html
-from utils.secret_manager import get_secret
 import asyncio
 from flask import Flask, request, jsonify
-from utils.rate_limiter import check_rate_limit, cleanup_session
-from utils.input_sanitizer import sanitize_input, get_safe_domain
-from utils.alert import send_alert
-from utils.firestore import get_group_config, hash_domain
+from .utils.rate_limiter import check_rate_limit, cleanup_session
+from .utils.input_sanitizer import sanitize_input, get_safe_domain
+from .utils.alert import send_alert
+from typing import Dict, List, Optional, Any
 
 # Configure logging with minimal metadata
 logging.basicConfig(
@@ -31,27 +31,118 @@ user_consent = set()
 
 app = Flask(__name__)
 
+# Get environment variables
+TELEGRAM_TOKEN = os.environ.get('TELEGRAM_TOKEN')
+FIRESTORE_FUNCTION_URL = os.environ.get('FIRESTORE_FUNCTION_URL')
+HASH_SALT = os.environ.get('HASH_SALT', 'default-salt')
+
 def get_telegram_token():
-    """Get the Telegram bot token from Secret Manager."""
+    """Get the Telegram bot token from environment variable."""
     try:
-        logger.debug("Attempting to get TELEGRAM_BOT_TOKEN from Secret Manager")
-        token = get_secret('TELEGRAM_BOT_TOKEN')
+        logger.debug("Attempting to get TELEGRAM_TOKEN from environment")
+        token = TELEGRAM_TOKEN
         if not token:
-            logger.error("Failed to get TELEGRAM_BOT_TOKEN from Secret Manager")
-            raise EnvironmentError("Failed to get TELEGRAM_BOT_TOKEN from Secret Manager")
-        logger.debug("Successfully retrieved TELEGRAM_BOT_TOKEN")
+            logger.error("Failed to get TELEGRAM_TOKEN from environment")
+            raise EnvironmentError("Failed to get TELEGRAM_TOKEN from environment")
+        logger.debug("Successfully retrieved TELEGRAM_TOKEN")
         return token
     except Exception as e:
-        logger.error(f"Error getting token from Secret Manager: {str(e)}")
+        logger.error(f"Error getting token from environment: {str(e)}")
         raise
 
-def hash_user_id(user_id):
-    """Hash user ID to avoid logging PII."""
-    if not user_id:
+def hash_user_id(user_id: int) -> str:
+    """Hash a user ID to avoid storing PII."""
+    return hashlib.sha256(f"{HASH_SALT}{user_id}".encode()).hexdigest()[:8]
+
+def hash_domain(domain: str) -> str:
+    """Hash a domain to avoid storing PII."""
+    if not domain:
         return 'unknown'
-    # Add salt from environment variable or use default
-    salt = os.environ.get('HASH_SALT', 'default-salt')
-    return hashlib.sha256(f"{salt}{user_id}".encode()).hexdigest()[:8]
+    return hashlib.sha256(f"{HASH_SALT}{domain.lower()}".encode()).hexdigest()[:8]
+
+def get_group_config(chat_id: str) -> Dict[str, Any]:
+    """Get configuration for a specific group."""
+    try:
+        response = requests.post(
+            FIRESTORE_FUNCTION_URL,
+            json={
+                'action': 'get_group_config',
+                'chat_id': chat_id
+            }
+        )
+        response.raise_for_status()
+        return response.json()['config']
+    except Exception as e:
+        logger.error(f"Error getting group config: {str(e)}")
+        return {
+            "default_behavior": "clean",
+            "domain_rules": {}
+        }
+
+def update_group_config(chat_id: str, config: Dict[str, Any]) -> bool:
+    """Update configuration for a specific group."""
+    try:
+        response = requests.post(
+            FIRESTORE_FUNCTION_URL,
+            json={
+                'action': 'update_group_config',
+                'chat_id': chat_id,
+                'config': config
+            }
+        )
+        response.raise_for_status()
+        return response.json()['success']
+    except Exception as e:
+        logger.error(f"Error updating group config: {str(e)}")
+        return False
+
+def get_proxy_config() -> Dict[str, List[str]]:
+    """Get the current proxy configuration."""
+    try:
+        response = requests.post(
+            FIRESTORE_FUNCTION_URL,
+            json={
+                'action': 'get_proxy_config'
+            }
+        )
+        response.raise_for_status()
+        return response.json()['config']
+    except Exception as e:
+        logger.error(f"Error getting proxy config: {str(e)}")
+        return {}
+
+def get_user_consent(user_id: str) -> bool:
+    """Check if a user has given consent."""
+    try:
+        response = requests.post(
+            FIRESTORE_FUNCTION_URL,
+            json={
+                'action': 'get_user_consent',
+                'user_id': user_id
+            }
+        )
+        response.raise_for_status()
+        return response.json()['has_consent']
+    except Exception as e:
+        logger.error(f"Error checking user consent: {str(e)}")
+        return False
+
+def set_user_consent(user_id: str, has_consent: bool = True) -> bool:
+    """Set user consent status."""
+    try:
+        response = requests.post(
+            FIRESTORE_FUNCTION_URL,
+            json={
+                'action': 'set_user_consent',
+                'user_id': user_id,
+                'has_consent': has_consent
+            }
+        )
+        response.raise_for_status()
+        return response.json()['success']
+    except Exception as e:
+        logger.error(f"Error setting user consent: {str(e)}")
+        return False
 
 async def delete_message_after_delay(context: ContextTypes.DEFAULT_TYPE, chat_id, message_id):
     """Delete message after 5 minutes for privacy."""
@@ -241,7 +332,7 @@ async def process_update(request_json):
     """Process a Telegram update."""
     try:
         # Create application
-        application = ApplicationBuilder().token(get_secret("TELEGRAM_BOT_TOKEN")).build()
+        application = ApplicationBuilder().token(get_telegram_token()).build()
         
         # Add handlers
         application.add_handler(CommandHandler("start", start))

@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 
 # Get the project root directory (parent of bot directory)
-PROJECT_ROOT = Path(__file__).parent.parent
+PROJECT_ROOT = Path(__file__).parent
 
 # Read README.md from the project root
 readme_path = PROJECT_ROOT / "README.md"
@@ -51,9 +51,8 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/Dirty-World/Dirty-Launderer",
-    packages=find_packages(exclude=["tests"]),
+    packages=find_packages(where=".", exclude=["tests"]),
     package_data={
-        "dirty_launderer_bot": ["py.typed"],
         "": ["*.json", "*.yaml", "*.yml"],  # Include all JSON and YAML files
     },
     include_package_data=True,
@@ -74,7 +73,7 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "dirty-launderer=dirty_launderer_bot.main:main",
+            "dirty-launderer=main:main",
         ],
     },
     project_urls={

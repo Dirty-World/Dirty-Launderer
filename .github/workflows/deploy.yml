@@ -1,4 +1,4 @@
-name: Deploy The Dirty Launderer Bot to GCP
+name: Deploy Bot
 
 # Trigger deployment on push to main or manual workflow_dispatch
 on:
@@ -24,7 +24,7 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment || 'dev' }}
+    environment: dev
 
     steps:
     - name: Checkout code
@@ -34,240 +34,70 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: '3.11'
-        check-latest: true
-
-    - name: Cache Python dependencies
-      uses: actions/cache@v3
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-
 
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        if [ -f requirements.txt ]; then
-          pip install -r requirements.txt
-        fi
+        pip install -r bot/requirements.txt
+        pip install -r bot/requirements-prod.txt
 
-    - name: Zip bot source code
-      id: zip-bot
+    - name: Create deployment packages
       run: |
-        echo "Starting bot source code packaging..."
-        mkdir -p dist
-        if [ ! -d "bot" ]; then
-          echo "Error: bot directory not found"
-          exit 1
-        fi
-        echo "Found bot directory, creating minimal zip archive..."
-        cd bot
-        
-        # Verify required files exist
-        required_files=(
-          "main.py"
-          "webhook_check_function.py"
-          "utils/secret_manager.py"
-          "utils/proxy_helper.py"
-          "utils/input_sanitizer.py"
-          "utils/config/proxies.json"
-          "requirements.txt"
-          "requirements-prod.txt"
-          ".gcloudignore"
-        )
-        
-        for file in "${required_files[@]}"; do
-          if [ ! -f "$file" ]; then
-            echo "Error: Required file $file not found"
-            exit 1
-          fi
-        done
-        
-        # Create minimal deployment package
-        # First, create a temporary directory for the deployment files
-        mkdir -p ../dist/temp
-        cp main.py webhook_check_function.py requirements.txt requirements-prod.txt .gcloudignore ../dist/temp/
-        cp -r utils ../dist/temp/
-        
-        # Remove any virtual environments or cache directories that might have been copied
-        find ../dist/temp -type d -name "venv*" -exec rm -rf {} +
-        find ../dist/temp -type d -name "__pycache__" -exec rm -rf {} +
-        find ../dist/temp -type d -name ".pytest_cache" -exec rm -rf {} +
-        find ../dist/temp -type d -name ".coverage" -exec rm -rf {} +
-        
-        # Create the zip file from the cleaned temporary directory
-        cd ../dist/temp
+        # Create dist directory
+        mkdir -p dist/temp
+
+        # Main bot function
+        echo "Creating main bot function package..."
+        cp bot/main.py dist/temp/
+        cp bot/requirements.txt dist/temp/
+        cp -r bot/utils dist/temp/
+        cd dist/temp
         zip -r ../bot-source.zip .
         cd ../..
-        
-        if [ ! -f "dist/bot-source.zip" ]; then
-          echo "Error: Failed to create bot-source.zip"
-          exit 1
-        fi
-        
-        # Verify package size
-        size_mb=$(du -m "dist/bot-source.zip" | cut -f1)
-        if [ "$size_mb" -gt 50 ]; then
-          echo "Error: Package size ($size_mb MB) exceeds 50MB limit"
-          exit 1
-        fi
-        
-        # Verify package contents
-        echo "Verifying package contents..."
-        unzip -l "dist/bot-source.zip" | grep -E "main.py|webhook_check_function.py|utils/|requirements.txt|requirements-prod.txt|.gcloudignore"
-        
-        echo "Successfully created minimal bot-source.zip (${size_mb}MB)"
 
-    - name: Authenticate to Google Cloud
+        # Firestore function
+        echo "Creating Firestore function package..."
+        rm -rf dist/temp/*
+        cp bot/firestore_function.py dist/temp/main.py
+        cp bot/requirements-prod.txt dist/temp/requirements.txt
+        cd dist/temp
+        zip -r ../firestore-function.zip .
+        cd ../..
+
+        # Webhook function
+        echo "Creating webhook function package..."
+        rm -rf dist/temp/*
+        cp bot/webhook_check_function.py dist/temp/main.py
+        cp bot/requirements.txt dist/temp/
+        cd dist/temp
+        zip -r ../webhook-function.zip .
+        cd ../..
+
+        # Clean up
+        rm -rf dist/temp
+
+    - name: Set up Terraform
+      uses: hashicorp/setup-terraform@v2
+      with:
+        terraform_version: "1.5.0"
+
+    - name: Google Auth
       uses: google-github-actions/auth@v1
       with:
-        workload_identity_provider: "projects/60107979354/locations/global/workloadIdentityPools/github-actions-pool-prod/providers/github-actions-provider-prod"
-        service_account: "github-deployer@the-dirty-launderer.iam.gserviceaccount.com"
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-    - name: Set up gcloud CLI
-      uses: google-github-actions/setup-gcloud@v1
-
-    - name: Set up environment variables
-      id: setup-env
+    - name: Deploy Infrastructure
       run: |
-        # Fetch secrets from GCP Secret Manager
-        GCP_PROJECT_ID=$(gcloud secrets versions access latest --secret=GCP_PROJECT_ID --project=the-dirty-launderer)
-        GCS_BUCKET_NAME=$(gcloud secrets versions access latest --secret=GCS_BUCKET_NAME --project=the-dirty-launderer)
-        GITHUB_TOKEN=$(gcloud secrets versions access latest --secret=GITHUB_DEPLOYMENT_TOKEN --project=the-dirty-launderer)
-        
-        # Set environment variables
-        echo "GCP_PROJECT_ID=$GCP_PROJECT_ID" >> $GITHUB_ENV
-        echo "GCS_BUCKET_NAME=$GCS_BUCKET_NAME" >> $GITHUB_ENV
-        echo "GITHUB_TOKEN=$GITHUB_TOKEN" >> $GITHUB_ENV
-        
-        # Store values for later use
-        echo "gcp_project_id=$GCP_PROJECT_ID" >> $GITHUB_OUTPUT
-        echo "gcs_bucket_name=$GCS_BUCKET_NAME" >> $GITHUB_OUTPUT
-        echo "github_token=$GITHUB_TOKEN" >> $GITHUB_OUTPUT
+        cd terraform
+        terraform init
+        terraform plan
+        terraform apply -auto-approve
 
-    - name: Upload bot source to GCS
-      id: upload-gcs
+    - name: Log Deployment
       run: |
-        echo "Uploading bot source to GCS..."
-        if ! gsutil cp dist/bot-source.zip gs://${{ steps.setup-env.outputs.gcs_bucket_name }}/; then
-          echo "Error: Failed to upload bot-source.zip to GCS"
-          exit 1
-        fi
-        echo "Successfully uploaded bot-source.zip to GCS"
-
-    - name: Verify GitHub Token
-      id: verify-token
-      run: |
-        echo "Verifying GitHub token permissions..."
-        if [ -z "${{ steps.setup-env.outputs.github_token }}" ]; then
-          echo "Error: GitHub token is empty"
-          exit 1
-        fi
-        # Test token permissions
-        if ! curl -s -H "Authorization: token ${{ steps.setup-env.outputs.github_token }}" https://api.github.com/user | grep -q "login"; then
-          echo "Error: GitHub token is invalid or has insufficient permissions"
-          exit 1
-        fi
-        echo "GitHub token verified successfully"
-
-    - name: Trigger Infrastructure Deployment
-      id: trigger-deploy
-      uses: peter-evans/repository-dispatch@v2
-      with:
-        token: ${{ steps.setup-env.outputs.github_token }}
-        repository: Dirty-World/Dirty-Launderer-Infra
-        event-type: deploy-infrastructure
-        client-payload: |
-          {
-            "environment": "${{ github.event.inputs.environment || 'dev' }}",
-            "source_version": "${{ github.sha }}",
-            "bot_source_zip": "bot-source.zip"
-          }
-
-    - name: Store Deployment Logs
-      if: always()
-      run: |
-        # Set up timestamp
-        TIMESTAMP=$(date +'%Y%m%d_%H%M%S')
-        STATUS=${{ job.status }}
-        
-        # Clone dirty-secrets repository
-        git clone https://x-access-token:${{ steps.setup-env.outputs.github_token }}@github.com/Dirty-World/Dirty-Secrets.git
-        cd Dirty-Secrets
-        
-        # Create log directories if they don't exist
-        mkdir -p dirty-launderer/deploy/$STATUS
-        mkdir -p dirty-launderer/audit
-        mkdir -p dirty-launderer/maintenance/$STATUS
-        
-        # Get commit message from event payload or use default
-        COMMIT_MSG="Manual deployment"
-        if [ "${{ github.event_name }}" = "push" ]; then
-          COMMIT_MSG="${{ github.event.head_commit.message }}"
-        elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-          COMMIT_MSG="Manual deployment triggered by ${{ github.actor }}"
-        fi
-        
-        # Create deployment log
-        cat > "dirty-launderer/deploy/$STATUS/deploy_${TIMESTAMP}_run_${{ github.run_number }}.log" << EOF
-        Deployment Log for Dirty Launderer
-        ================================
-        Timestamp: $(date)
-        Workflow Run ID: ${{ github.run_id }}
-        Run Number: ${{ github.run_number }}
-        Status: $STATUS
-        Environment: ${{ github.event.inputs.environment || 'dev' }}
-        
-        Workflow Details:
-        ----------------
-        Name: ${{ github.workflow }}
-        Triggered by: ${{ github.actor }}
-        Branch: ${{ github.ref_name }}
-        Commit: $COMMIT_MSG
-        
-        Deployment Steps:
-        ----------------
-        Source Code Packaging: ${{ steps.zip-bot.outcome }}
-        GCS Upload: ${{ steps.upload-gcs.outcome }}
-        Infrastructure Deployment: ${{ steps.trigger-deploy.outcome }}
-        
-        Workflow URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        EOF
-        
-        # Create audit log
-        cat > "dirty-launderer/audit/audit_${TIMESTAMP}.log" << EOF
-        Audit Log for Dirty Launderer Deployment
-        ======================================
-        Timestamp: $(date)
-        Workflow Run ID: ${{ github.run_id }}
-        Run Number: ${{ github.run_number }}
-        Status: $STATUS
-        Environment: ${{ github.event.inputs.environment || 'dev' }}
-        
-        Actor: ${{ github.actor }}
-        Branch: ${{ github.ref_name }}
-        Commit: $COMMIT_MSG
-        
-        Deployment Artifacts:
-        -------------------
-        Source Code: bot-source.zip
-        GCS Location: gs://${{ steps.setup-env.outputs.gcs_bucket_name }}/bot-source.zip
-        EOF
-        
-        # Fetch and store GCP logs
-        echo "Fetching GCP logs..."
-        gcloud logging read "resource.type=cloud_function AND resource.labels.function_name=dirty-launderer-bot" --limit=50 > "dirty-launderer/maintenance/$STATUS/gcp_logs_${TIMESTAMP}.log"
-        
-        # Commit and push logs
-        git config --global user.name "GitHub Actions"
-        git config --global user.email "github-actions@github.com"
-        git add .
-        git commit -m "chore: update deployment logs and GCP logs [skip ci]"
-        git push
-
-    - name: Notify on Failure
-      if: failure()
-      run: |
-        echo "Deployment failed. Please check the logs."
-        echo "Last successful step: ${{ steps.*.outcome }}"
-        exit 1
+        echo "Deployment completed at $(date)" >> deployment.log
+        echo "Environment: ${{ github.event.inputs.environment || 'dev' }}" >> deployment.log
+        echo "Source version: ${{ github.sha }}" >> deployment.log
+        echo "Bot source zip: bot-source.zip" >> deployment.log
+        echo "Firestore function zip: firestore-function.zip" >> deployment.log
+        echo "Webhook function zip: webhook-function.zip" >> deployment.log

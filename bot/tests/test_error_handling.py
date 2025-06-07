@@ -10,6 +10,7 @@ from main import (
     process_update,
     main
 )
+from utils.rate_limiter import check_rate_limit
 
 @pytest.mark.asyncio
 async def test_get_telegram_token_error():
@@ -32,13 +33,13 @@ def test_get_safe_domain_invalid_inputs():
     assert get_safe_domain('not-a-url') == 'invalid-url'
 
 def test_check_rate_limit_edge_cases():
-    """Test rate limiting edge cases."""
-    # Test with empty user_hash
+    """Test rate limit edge cases."""
+    # Test empty user hash
     result, message = check_rate_limit('')
     assert result is True
     assert message is None
 
-    # Test with None user_hash
+    # Test None user hash
     result, message = check_rate_limit(None)
     assert result is True
     assert message is None

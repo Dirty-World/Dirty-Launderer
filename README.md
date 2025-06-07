@@ -1,143 +1,137 @@
-# Dirty Launderer Bot
+# The Dirty Launderer Bot
 
-A Telegram bot for cleaning and sanitizing URLs, removing tracking parameters, and ensuring safe navigation.
+A Telegram bot that cleans URLs by removing tracking parameters and proxying through privacy-friendly frontends.
 
 ## Features
 
-- URL cleaning and sanitization
-- Tracking parameter removal
+- URL cleaning and tracking parameter removal
+- Privacy-friendly frontend proxying
 - Rate limiting
-- PII detection and handling
-- Secure secret management
-- Health monitoring
+- Auto-deleting messages
+- No data storage
+- Minimal logging
 
 ## Installation
 
-```bash
-pip install dirty-launderer-bot
-```
-
-For development:
-```bash
-pip install -e ".[dev]"
-```
+1. Clone the repository
+2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
 ## Usage
 
-```python
-from bot import main
+1. Set up environment variables:
+   ```bash
+   export TELEGRAM_BOT_TOKEN="your-bot-token"
+   export EXPECTED_WEBHOOK_URL="your-webhook-url"
+   export ALERT_CHAT_ID="admin-chat-id"
+   ```
 
-# Run the bot
-main()
-```
-
-Or use the command-line interface:
-```bash
-dirty-launderer
-```
+2. Run the bot:
+   ```bash
+   python bot/main.py
+   ```
 
 ## Development
 
-1. Clone the repository:
-```bash
-git clone https://github.com/gregmiller/Dirty-Launderer.git
-cd Dirty-Launderer/bot
-```
+### Architecture
 
-2. Install development dependencies:
-```bash
-pip install -e ".[dev]"
-```
+The bot uses a hybrid async/sync architecture:
 
-3. Run tests:
+1. **Main Function (Sync)**:
+   - Entry point for Cloud Functions
+   - Handles HTTP requests
+   - Creates event loop for async operations
+   - Returns HTTP responses
+
+2. **Process Update (Async)**:
+   - Processes Telegram updates
+   - Handles message routing
+   - Manages bot state
+   - Returns operation results
+
+3. **Command Handlers (Async)**:
+   - Handle specific commands
+   - Process user input
+   - Send responses
+   - Manage rate limiting
+
+### Event Loop Management
+
+The bot uses a per-request event loop pattern:
+
+1. **Loop Creation**:
+   ```python
+   loop = asyncio.new_event_loop()
+   asyncio.set_event_loop(loop)
+   ```
+
+2. **Async Execution**:
+   ```python
+   result = loop.run_until_complete(process_update(request_json))
+   ```
+
+3. **Cleanup**:
+   ```python
+   loop.close()
+   ```
+
+### Error Handling
+
+The bot implements a comprehensive error handling strategy:
+
+1. **Client Errors (400)**:
+   - Invalid requests
+   - Rate limiting
+   - User input errors
+
+2. **Server Errors (500)**:
+   - Internal processing errors
+   - External service failures
+   - Resource exhaustion
+
+### Resource Management
+
+1. **Memory**:
+   - Per-request cleanup
+   - No persistent storage
+   - Garbage collection after requests
+
+2. **Connections**:
+   - Short-lived connections
+   - Proper cleanup
+   - Timeout handling
+
+### Testing
+
+Run tests with:
 ```bash
 pytest
 ```
 
+Test categories:
+- Unit tests
+- Integration tests
+- Error handling tests
+- Resource limit tests
+
 ## Configuration
 
-The bot requires the following environment variables:
-- `TELEGRAM_TOKEN`: Your Telegram bot token
-- `EXPECTED_WEBHOOK_URL`: The webhook URL for your bot
-- `ALERT_CHAT_ID`: Chat ID for admin alerts
+### Environment Variables
 
-## Error Handling
+- `TELEGRAM_BOT_TOKEN`: Bot authentication token
+- `EXPECTED_WEBHOOK_URL`: Webhook URL for updates
+- `ALERT_CHAT_ID`: Admin chat for alerts
+- `HASH_SALT`: Salt for user ID hashing
 
-The bot follows a simple but effective error handling strategy:
+### Rate Limiting
 
-### Architecture
-
-1. **Command Handlers**
-   - Each command handler (`start`, `help`, `privacy`, `delete`) has its own error handling
-   - Errors are logged with detailed information
-   - User-friendly error messages are sent to the chat
-   - Messages are auto-deleted after 5 minutes for privacy
-
-2. **Message Handler**
-   - Handles all non-command messages
-   - Attempts to send user-friendly error messages
-   - Falls back gracefully if error message can't be sent
-
-3. **Application Error Handler**
-   - Catches all errors in handlers
-   - Logs errors with type information
-   - Lets errors propagate naturally
-
-4. **Main Function**
-   - Handles HTTP-level errors (invalid method, JSON parsing)
-   - Treats all bot errors as client-side issues (400)
-   - Provides detailed error logging
-   - Ensures cleanup after each request
-
-### Best Practices
-
-1. **Error Types**
-   - All errors are treated as client-side issues (400)
-   - No distinction between API and server errors
-   - Detailed error logging for debugging
-   - User-friendly error messages in chat
-
-2. **Error Flow**
-   ```
-   Command/Message Handler
-   ↓
-   Application Error Handler (logs error)
-   ↓
-   Process Update (re-raises error)
-   ↓
-   Main Function (returns 400)
-   ```
-
-3. **Logging**
-   - Use `logger.error()` for all errors
-   - Include error type in logs
-   - Sanitize user input before logging
-   - Hash user IDs for privacy
-
-4. **Cleanup**
-   - Always call `cleanup_session()` in finally blocks
-   - Delete error messages after 5 minutes
-   - Clear rate limiting data
-   - Run garbage collection
-
-### Example
-
-```python
-async def command_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    try:
-        # Command logic here
-        await update.message.reply_text("Success!")
-    except Exception as e:
-        logger.error(f"Error in command: {type(e).__name__}")
-        # Send user-friendly error message
-        msg = await update.message.reply_text("Sorry, something went wrong.")
-        # Auto-delete after 5 minutes
-        context.application.create_task(
-            delete_message_after_delay(context, update.message.chat_id, msg.message_id)
-        )
-    finally:
-        cleanup_session()
+- Default: 10 requests per minute
+- Configurable via `RATE_LIMIT` constant
+- Per-user tracking
+- Auto-cleanup of old entries
 
 ## License
 
-MIT License - see LICENSE file for details 
+MIT License - see LICENSE.md for details 

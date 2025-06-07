@@ -2,6 +2,7 @@ import os
 import pytest
 from unittest.mock import patch, MagicMock, AsyncMock
 import json
+import asyncio
 from main import main
 from webhook_check_function import main as webhook_check
 
@@ -15,6 +16,14 @@ def mock_env_vars():
     del os.environ["TELEGRAM_TOKEN"]
     del os.environ["EXPECTED_WEBHOOK_URL"]
     del os.environ["ALERT_CHAT_ID"]
+
+@pytest.fixture
+def event_loop():
+    """Create and provide an event loop for tests."""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    yield loop
+    loop.close()
 
 MOCK_SECRETS = {
     'TELEGRAM_BOT_TOKEN': 'mock-telegram-token',
@@ -33,7 +42,7 @@ class TestEndToEnd:
     @patch("main.Bot")
     @patch("webhook_check_function.requests.get")
     @patch("webhook_check_function.requests.post")
-    async def test_complete_message_flow(self, mock_post, mock_get, mock_bot, mock_secret, mock_env_vars):
+    async def test_complete_message_flow(self, mock_post, mock_get, mock_bot, mock_secret, mock_env_vars, event_loop):
         """Test complete message flow from webhook to response."""
         # Mock webhook check
         mock_get.return_value.json.return_value = {
@@ -65,7 +74,7 @@ class TestEndToEnd:
             }
         }
         
-        message_response = await main(message_request)
+        message_response = main(message_request)  # No longer async
         assert message_response[1] == 400
         assert "error" in message_response[0]
         
@@ -76,7 +85,7 @@ class TestEndToEnd:
     @pytest.mark.asyncio
     @patch("utils.secret_manager.get_secret", side_effect=mock_get_secret)
     @patch("main.Bot")
-    async def test_concurrent_messages(self, mock_bot, mock_secret, mock_env_vars):
+    async def test_concurrent_messages(self, mock_bot, mock_secret, mock_env_vars, event_loop):
         """Test handling of concurrent messages."""
         mock_bot_instance = MagicMock()
         mock_bot.return_value = mock_bot_instance
@@ -98,7 +107,7 @@ class TestEndToEnd:
             requests.append(request)
         
         # Process "concurrent" requests
-        responses = [await main(req) for req in requests]
+        responses = [main(req) for req in requests]  # No longer async
         
         # Verify all requests were processed
         assert all(resp[1] == 400 for resp in responses)
@@ -109,13 +118,14 @@ class TestEndToEnd:
     @pytest.mark.asyncio
     @patch("utils.secret_manager.get_secret", side_effect=mock_get_secret)
     @patch("main.Bot")
-    async def test_error_recovery(self, mock_bot, mock_secret, mock_env_vars):
+    async def test_error_recovery(self, mock_bot, mock_secret, mock_env_vars, event_loop):
         """Test system recovery from errors."""
+        # Mock bot instance
         mock_bot_instance = MagicMock()
         mock_bot.return_value = mock_bot_instance
         
         # First request fails
-        mock_bot_instance.send_message.side_effect = Exception("API Error")
+        mock_bot_instance.send_message = AsyncMock(side_effect=Exception("API Error"))
         
         request = MagicMock()
         request.method = "POST"
@@ -123,12 +133,12 @@ class TestEndToEnd:
             "message": {"text": "/start"}
         }
         
-        response1 = await main(request)
+        response1 = main(request)  # No longer async
         assert response1[1] == 400
         assert "error" in response1[0]
         
         # System recovers for second request
-        mock_bot_instance.send_message.side_effect = None
-        response2 = await main(request)
-        assert response2[1] == 400
-        assert "error" in response2[0] 
+        mock_bot_instance.send_message = AsyncMock()  # Reset to normal behavior
+        response2 = main(request)  # No longer async
+        assert response2[1] == 200  # Should succeed now
+        assert response2[0] == 'OK' 

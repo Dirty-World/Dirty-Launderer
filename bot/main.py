@@ -267,40 +267,48 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         cleanup_session()
 
 async def process_update(request_json):
+    """Process a single update with proper initialization and cleanup."""
+    # Initialize application
+    application = ApplicationBuilder().token(get_telegram_token()).build()
+    
+    # Add handlers
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(CommandHandler("privacy", privacy_command))
+    application.add_handler(CommandHandler("delete", delete_command))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    
+    # Add error handler
+    async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle errors in a user-friendly way."""
+        try:
+            logger.error(f"Error: {context.error}")
+            if update and update.effective_message:
+                try:
+                    msg = await update.effective_message.reply_text(
+                        "Sorry, something went wrong. Please try again later."
+                    )
+                    # Schedule message deletion
+                    asyncio.create_task(delete_message_after_delay(context, update.effective_message.chat_id, msg.message_id))
+                except Exception as e:
+                    logger.error(f"Error sending error message: {type(e).__name__}")
+        except Exception as e:
+            logger.error(f"Error in error handler: {type(e).__name__}")
+        finally:
+            cleanup_session()
+    
+    application.add_error_handler(error_handler)
+    
     try:
-        token = get_telegram_token()
-        bot = Bot(token=token)
-        application = ApplicationBuilder().token(token).build()
-        
-        # Add error handler
-        async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-            """Handle errors in the application."""
-            error = context.error
-            logger.error(f"Error in handler: {type(error).__name__}")
-            # Don't raise ApplicationHandlerStop, let the error propagate
-            pass
-        
-        # Register handlers
-        application.add_handler(CommandHandler("start", start))
-        application.add_handler(CommandHandler("help", help_command))
-        application.add_handler(CommandHandler("privacy", privacy_command))
-        application.add_handler(CommandHandler("delete", delete_command))
-        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-        application.add_error_handler(error_handler)
-        
-        # Initialize the application
-        await application.initialize()
-        
-        # Create update object
-        update = Update.de_json(request_json, bot)
         # Process update
-        await application.process_update(update)
-        
-        # Shutdown the application
+        await application.initialize()
+        await application.process_update(Update.de_json(request_json, application.bot))
         await application.shutdown()
     except Exception as e:
-        logger.error(f"Error in process_update: {type(e).__name__}")
-        raise  # Re-raise to be handled by main function
+        logger.error(f"Error processing update: {type(e).__name__}")
+        raise
+    finally:
+        cleanup_session()
 
 # Cloud Function entry point
 async def main(request):

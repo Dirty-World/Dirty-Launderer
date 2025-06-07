@@ -52,6 +52,8 @@ jobs:
         cp bot/requirements.txt dist/temp/
         cp -r bot/utils dist/temp/
         cd dist/temp
+        pip install -r requirements.txt
+        pip install -r ../requirements-prod.txt
         zip -r ../bot-source.zip .
         cd ../..
 
@@ -61,6 +63,7 @@ jobs:
         cp bot/firestore_function.py dist/temp/main.py
         cp bot/requirements-prod.txt dist/temp/requirements.txt
         cd dist/temp
+        pip install -r requirements.txt
         zip -r ../firestore-function.zip .
         cd ../..
 
@@ -70,6 +73,7 @@ jobs:
         cp bot/webhook_check_function.py dist/temp/main.py
         cp bot/requirements-prod.txt dist/temp/requirements.txt
         cd dist/temp
+        pip install -r requirements.txt
         zip -r ../webhook-function.zip .
         cd ../..
 

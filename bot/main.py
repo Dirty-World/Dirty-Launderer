@@ -118,19 +118,28 @@ async def privacy_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.application.create_task(delete_message_after_delay(context, update.message.chat_id, msg.message_id))
             return
 
-        privacy_text = (
-            "🔒 *The Dirty Launderer🧼 Privacy Policy*\n\n"
-            "• We do not store any personal data\n"
-            "• Messages are processed in memory only\n"
-            "• URLs are cleaned of tracking parameters\n"
-            "• Logs are anonymized and minimal\n"
-            "• Messages are auto-deleted after 5 minutes\n"
-            "• You can use /delete to remove messages immediately\n"
-            "• Rate limiting is in place to prevent abuse\n\n"
-            "By using this bot, you consent to this privacy policy."
-        )
-        msg = await update.message.reply_text(privacy_text, parse_mode=ParseMode.MARKDOWN)
-        context.application.create_task(delete_message_after_delay(context, update.message.chat_id, msg.message_id))
+        try:
+            privacy_text = (
+                "🔒 *The Dirty Launderer🧼 Privacy Policy*\n\n"
+                "• We do not store any personal data\n"
+                "• Messages are processed in memory only\n"
+                "• URLs are cleaned of tracking parameters\n"
+                "• Logs are anonymized and minimal\n"
+                "• Messages are auto-deleted after 5 minutes\n"
+                "• You can use /delete to remove messages immediately\n"
+                "• Rate limiting is in place to prevent abuse\n\n"
+                "By using this bot, you consent to this privacy policy."
+            )
+            msg = await update.message.reply_text(privacy_text, parse_mode=ParseMode.MARKDOWN)
+            context.application.create_task(delete_message_after_delay(context, update.message.chat_id, msg.message_id))
+        except Exception as e:
+            logger.error(f"Error sending privacy message: {type(e).__name__}")
+            raise ApplicationHandlerStop()
+    except ApplicationHandlerStop:
+        raise
+    except Exception as e:
+        logger.error(f"Error in privacy command: {type(e).__name__}")
+        raise ApplicationHandlerStop()
     finally:
         cleanup_session()
 
@@ -144,12 +153,21 @@ async def delete_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.application.create_task(delete_message_after_delay(context, update.message.chat_id, msg.message_id))
             return
 
-        if update.message.reply_to_message:
-            try:
-                await update.message.reply_to_message.delete()
-            except Exception:
-                pass
-        await update.message.delete()
+        try:
+            if update.message.reply_to_message:
+                try:
+                    await update.message.reply_to_message.delete()
+                except Exception:
+                    pass
+            await update.message.delete()
+        except Exception as e:
+            logger.error(f"Error deleting messages: {type(e).__name__}")
+            raise ApplicationHandlerStop()
+    except ApplicationHandlerStop:
+        raise
+    except Exception as e:
+        logger.error(f"Error in delete command: {type(e).__name__}")
+        raise ApplicationHandlerStop()
     finally:
         cleanup_session()
 
@@ -164,11 +182,20 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         logger.info(f"Command: start, User: {user_hash}")
-        msg = await update.message.reply_text(
-            'Hi! I am The Dirty Launderer🧼 bot. Send me a URL and I will clean it for you.\n'
-            'Use /help to see available commands.'
-        )
-        context.application.create_task(delete_message_after_delay(context, update.message.chat_id, msg.message_id))
+        try:
+            msg = await update.message.reply_text(
+                'Hi! I am The Dirty Launderer🧼 bot. Send me a URL and I will clean it for you.\n'
+                'Use /help to see available commands.'
+            )
+            context.application.create_task(delete_message_after_delay(context, update.message.chat_id, msg.message_id))
+        except Exception as e:
+            logger.error(f"Error sending start message: {type(e).__name__}")
+            raise ApplicationHandlerStop()
+    except ApplicationHandlerStop:
+        raise
+    except Exception as e:
+        logger.error(f"Error in start command: {type(e).__name__}")
+        raise ApplicationHandlerStop()
     finally:
         cleanup_session()
 
@@ -183,16 +210,25 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         logger.info(f"Command: help, User: {user_hash}")
-        msg = await update.message.reply_text(
-            'The Dirty Launderer🧼 is here to help!\n\n'
-            'Send me any URL and I will remove tracking parameters and proxy it through privacy-friendly frontends.\n\n'
-            'Commands:\n'
-            '/privacy - View privacy policy\n'
-            '/delete - Delete messages\n'
-            '/help - Show this help\n\n'
-            'Made with 🧼 by The Dirty Launderer🧼 team'
-        )
-        context.application.create_task(delete_message_after_delay(context, update.message.chat_id, msg.message_id))
+        try:
+            msg = await update.message.reply_text(
+                'The Dirty Launderer🧼 is here to help!\n\n'
+                'Send me any URL and I will remove tracking parameters and proxy it through privacy-friendly frontends.\n\n'
+                'Commands:\n'
+                '/privacy - View privacy policy\n'
+                '/delete - Delete messages\n'
+                '/help - Show this help\n\n'
+                'Made with 🧼 by The Dirty Launderer🧼 team'
+            )
+            context.application.create_task(delete_message_after_delay(context, update.message.chat_id, msg.message_id))
+        except Exception as e:
+            logger.error(f"Error sending help message: {type(e).__name__}")
+            raise ApplicationHandlerStop()
+    except ApplicationHandlerStop:
+        raise
+    except Exception as e:
+        logger.error(f"Error in help command: {type(e).__name__}")
+        raise ApplicationHandlerStop()
     finally:
         cleanup_session()
 
@@ -241,9 +277,8 @@ async def process_update(request_json):
             """Handle errors in the application."""
             error = context.error
             logger.error(f"Error in handler: {type(error).__name__}")
-            # Raise ApplicationHandlerStop to indicate this is an API error
-            # This will be caught by process_update and converted to a 400 response
-            raise ApplicationHandlerStop()
+            # Don't raise ApplicationHandlerStop, let the error propagate
+            pass
         
         # Register handlers
         application.add_handler(CommandHandler("start", start))
@@ -263,13 +298,9 @@ async def process_update(request_json):
         
         # Shutdown the application
         await application.shutdown()
-    except ApplicationHandlerStop:
-        # This is an API error that was handled by our error handler
-        raise
     except Exception as e:
         logger.error(f"Error in process_update: {type(e).__name__}")
-        # This is an unexpected error that should be treated as a server error
-        raise
+        raise  # Re-raise to be handled by main function
 
 # Cloud Function entry point
 async def main(request):
@@ -287,17 +318,14 @@ async def main(request):
         try:
             await process_update(request_json)
             return 'OK', 200
-        except ApplicationHandlerStop:
-            # This is an API error that was handled by our error handler
-            return {'error': 'API Error'}, 400
         except Exception as e:
             error_type = type(e).__name__
-            logger.error(f"Unexpected error: {error_type}")
-            # This is an unexpected error that should be treated as a server error
-            return {'error': 'Internal Server Error'}, 500
+            logger.error(f"Bot error: {error_type}")
+            # Return 400 for all errors since they're client-side issues
+            return {'error': error_type}, 400
     except Exception as e:
         logger.error(f"Error in main: {type(e).__name__}")
-        # This is an unexpected error that should be treated as a server error
-        return {'error': 'Internal Server Error'}, 500
+        # Return 400 for any unhandled exceptions in the main function
+        return {'error': type(e).__name__}, 400
     finally:
         cleanup_session()

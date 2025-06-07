@@ -306,34 +306,43 @@ async def process_update(request_json):
         await application.shutdown()
     except Exception as e:
         logger.error(f"Error processing update: {type(e).__name__}")
-        raise
+        # Don't re-raise the exception, let the main function handle it
+        return {'error': type(e).__name__}, 400
     finally:
         cleanup_session()
 
 # Cloud Function entry point
-async def main(request):
+def main(request):
+    """Main entry point for the Cloud Function."""
     try:
+        # Validate request method
         if request.method != "POST":
-            logger.warning("Invalid request method")
-            return 'Only POST requests are accepted', 405
+            logger.error(f"Invalid request method: {request.method}")
+            return ({"error": "Method not allowed"}, 405)
 
+        # Parse request JSON
         try:
-            request_json = request.get_json(force=True)
+            request_json = request.get_json()
         except Exception as e:
-            logger.error(f"Error parsing JSON: {type(e).__name__}")
-            return {'error': 'BadRequest'}, 400
+            logger.error(f"Invalid JSON: {str(e)}")
+            return ({"error": "Invalid JSON"}, 400)
 
+        # Create event loop for async operations
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         try:
-            await process_update(request_json)
-            return 'OK', 200
+            # Process update
+            result = loop.run_until_complete(process_update(request_json))
+            return result
         except Exception as e:
-            error_type = type(e).__name__
-            logger.error(f"Bot error: {error_type}")
-            # Return 400 for all errors since they're client-side issues
-            return {'error': error_type}, 400
+            logger.error(f"Error processing update: {type(e).__name__}: {str(e)}")
+            # Return 400 for all client-side errors
+            return ({"error": "Bad request"}, 400)
+        finally:
+            # Clean up event loop
+            loop.close()
     except Exception as e:
-        logger.error(f"Error in main: {type(e).__name__}")
-        # Return 400 for any unhandled exceptions in the main function
-        return {'error': type(e).__name__}, 400
-    finally:
-        cleanup_session()
+        logger.error(f"Unexpected error: {type(e).__name__}: {str(e)}")
+        # Return 400 for all client-side errors
+        return ({"error": "Bad request"}, 400)
+

@@ -68,7 +68,7 @@ jobs:
         echo "Creating webhook function package..."
         rm -rf dist/temp/*
         cp bot/webhook_check_function.py dist/temp/main.py
-        cp bot/requirements.txt dist/temp/
+        cp bot/requirements-prod.txt dist/temp/requirements.txt
         cd dist/temp
         zip -r ../webhook-function.zip .
         cd ../..

@@ -14,9 +14,9 @@ import re
 import html
 import asyncio
 from flask import Flask, request, jsonify
-from .utils.rate_limiter import check_rate_limit, cleanup_session
-from .utils.input_sanitizer import sanitize_input, get_safe_domain
-from .utils.alert import send_alert
+from utils.rate_limiter import check_rate_limit, cleanup_session
+from utils.input_sanitizer import sanitize_input, get_safe_domain
+from utils.alert import send_alert
 from typing import Dict, List, Optional, Any
 
 # Configure logging with minimal metadata

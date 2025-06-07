@@ -198,6 +198,7 @@ jobs:
         # Create log directories if they don't exist
         mkdir -p dirty-launderer/deploy/$STATUS
         mkdir -p dirty-launderer/audit
+        mkdir -p dirty-launderer/maintenance/$STATUS
         
         # Get commit message from event payload or use default
         COMMIT_MSG="Manual deployment"
@@ -248,19 +249,20 @@ jobs:
         Commit: $COMMIT_MSG
         
         Deployment Artifacts:
-        --------------------
-        Source Package: bot-source.zip
-        GCS Bucket: ${{ steps.setup-env.outputs.gcs_bucket_name }}
-        GCP Project: ${{ steps.setup-env.outputs.gcp_project_id }}
-        
-        Workflow URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        -------------------
+        Source Code: bot-source.zip
+        GCS Location: gs://${{ steps.setup-env.outputs.gcs_bucket_name }}/bot-source.zip
         EOF
         
+        # Fetch and store GCP logs
+        echo "Fetching GCP logs..."
+        gcloud logging read "resource.type=cloud_function AND resource.labels.function_name=dirty-launderer-bot" --limit=50 > "dirty-launderer/maintenance/$STATUS/gcp_logs_${TIMESTAMP}.log"
+        
         # Commit and push logs
-        git config --global user.name 'GitHub Actions'
-        git config --global user.email 'actions@github.com'
+        git config --global user.name "GitHub Actions"
+        git config --global user.email "github-actions@github.com"
         git add .
-        git commit -m "Add deployment logs for Dirty Launderer run ${{ github.run_number }}"
+        git commit -m "chore: update deployment logs and GCP logs [skip ci]"
         git push
 
     - name: Notify on Failure

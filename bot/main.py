@@ -234,8 +234,10 @@ async def process_update(request_json):
         # Add error handler
         async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             """Handle errors in the application."""
-            logger.error(f"Error in handler: {context.error}")
-            raise context.error  # Re-raise to be handled by process_update
+            error = context.error
+            logger.error(f"Error in handler: {type(error).__name__}")
+            # Raise ApplicationHandlerStop to stop error propagation
+            raise ApplicationHandlerStop()
         
         # Register handlers
         application.add_handler(CommandHandler("start", start))
@@ -257,31 +259,26 @@ async def process_update(request_json):
 async def main(request):
     try:
         if request.method != "POST":
-            logger.warning("Invalid request method")
-            return 'Only POST requests are accepted', 405
-        try:
-            request_json = request.get_json(force=True)
-        except Exception as e:
-            logger.error(f"Error parsing JSON: {type(e).__name__}")
-            return {'error': 'BadRequest'}, 400
-        update_type = 'message' if 'message' in request_json else 'callback_query' if 'callback_query' in request_json else 'unknown'
-        logger.info(f"Update type: {update_type}")
+            return {"error": "Method not allowed"}, 405
+
+        request_json = request.get_json()
+        if not request_json:
+            return {"error": "No JSON data"}, 400
+
         try:
             await process_update(request_json)
             return 'OK', 200
+        except ApplicationHandlerStop:
+            # Error was handled by the application's error handler
+            return {'error': 'API Error'}, 400
         except Exception as e:
             error_type = type(e).__name__
             logger.error(f"Bot error: {error_type}")
-            import traceback
-            logger.error(traceback.format_exc())
             # Return 400 for API errors and other client-side issues
             if error_type in ('ValueError', 'BadRequest', 'TypeError', 'Exception'):
                 return {'error': error_type}, 400
-            if hasattr(e, 'message'):
-                safe_error = sanitize_input(str(e.message))
-                logger.error(f"Error details: {safe_error}")
-            # Only return 500 for unexpected server errors
-            return {'error': error_type}, 500
+            # Return 500 for unexpected server errors
+            return {'error': 'Internal Server Error'}, 500
     except Exception as e:
         logger.error(f"Error: {type(e).__name__}")
         # Return 400 for any unhandled exceptions in the main function

@@ -84,7 +84,10 @@ jobs:
     - name: Google Auth
       uses: google-github-actions/auth@v1
       with:
-        credentials_json: ${{ secrets.GCP_SA_KEY }}
+        workload_identity_provider: 'projects/${{ vars.GCP_PROJECT_ID }}/locations/global/workloadIdentityPools/github-actions-pool-prod/providers/github-actions-provider-prod'
+        service_account: 'github-deployer@${{ vars.GCP_PROJECT_ID }}.iam.gserviceaccount.com'
+        create_credentials_file: true
+        export_environment_variables: true
 
     - name: Deploy Infrastructure
       run: |

@@ -241,7 +241,8 @@ async def process_update(request_json):
             """Handle errors in the application."""
             error = context.error
             logger.error(f"Error in handler: {type(error).__name__}")
-            # Raise ApplicationHandlerStop to stop error propagation
+            # Raise ApplicationHandlerStop to indicate this is an API error
+            # This will be caught by process_update and converted to a 400 response
             raise ApplicationHandlerStop()
         
         # Register handlers
@@ -262,9 +263,13 @@ async def process_update(request_json):
         
         # Shutdown the application
         await application.shutdown()
+    except ApplicationHandlerStop:
+        # This is an API error that was handled by our error handler
+        raise
     except Exception as e:
         logger.error(f"Error in process_update: {type(e).__name__}")
-        raise  # Re-raise to be handled by main function
+        # This is an unexpected error that should be treated as a server error
+        raise
 
 # Cloud Function entry point
 async def main(request):
@@ -283,19 +288,16 @@ async def main(request):
             await process_update(request_json)
             return 'OK', 200
         except ApplicationHandlerStop:
-            # Error was handled by the application's error handler
+            # This is an API error that was handled by our error handler
             return {'error': 'API Error'}, 400
         except Exception as e:
             error_type = type(e).__name__
-            logger.error(f"Bot error: {error_type}")
-            # Return 400 for API errors and other client-side issues
-            if error_type in ('ValueError', 'BadRequest', 'TypeError', 'Exception'):
-                return {'error': error_type}, 400
-            # Return 500 for unexpected server errors
+            logger.error(f"Unexpected error: {error_type}")
+            # This is an unexpected error that should be treated as a server error
             return {'error': 'Internal Server Error'}, 500
     except Exception as e:
-        logger.error(f"Error: {type(e).__name__}")
-        # Return 400 for any unhandled exceptions in the main function
-        return {'error': type(e).__name__}, 400
+        logger.error(f"Error in main: {type(e).__name__}")
+        # This is an unexpected error that should be treated as a server error
+        return {'error': 'Internal Server Error'}, 500
     finally:
         cleanup_session()

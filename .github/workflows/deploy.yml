@@ -24,7 +24,7 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: dev
+    environment: ${{ github.event.inputs.environment || 'dev' }}
 
     steps:
     - name: Checkout code
@@ -35,12 +35,6 @@ jobs:
       with:
         python-version: '3.11'
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r bot/requirements.txt
-        pip install -r bot/requirements-prod.txt
-
     - name: Create deployment packages
       run: |
         # Create dist directory
@@ -49,11 +43,10 @@ jobs:
         # Main bot function
         echo "Creating main bot function package..."
         cp bot/main.py dist/temp/
-        cp bot/requirements.txt dist/temp/
+        cp bot/requirements-main.txt dist/temp/requirements.txt
         cp -r bot/utils dist/temp/
         cd dist/temp
-        pip install -r requirements.txt
-        pip install -r ../requirements-prod.txt
+        pip install --no-cache-dir -r requirements.txt --target .
         zip -r ../bot-source.zip .
         cd ../..
 
@@ -61,9 +54,9 @@ jobs:
         echo "Creating Firestore function package..."
         rm -rf dist/temp/*
         cp bot/firestore_function.py dist/temp/main.py
-        cp bot/requirements-prod.txt dist/temp/requirements.txt
+        cp bot/requirements-firestore.txt dist/temp/requirements.txt
         cd dist/temp
-        pip install -r requirements.txt
+        pip install --no-cache-dir -r requirements.txt --target .
         zip -r ../firestore-function.zip .
         cd ../..
 
@@ -71,9 +64,9 @@ jobs:
         echo "Creating webhook function package..."
         rm -rf dist/temp/*
         cp bot/webhook_check_function.py dist/temp/main.py
-        cp bot/requirements-prod.txt dist/temp/requirements.txt
+        cp bot/requirements-webhook.txt dist/temp/requirements.txt
         cd dist/temp
-        pip install -r requirements.txt
+        pip install --no-cache-dir -r requirements.txt --target .
         zip -r ../webhook-function.zip .
         cd ../..
 
@@ -85,11 +78,32 @@ jobs:
       with:
         terraform_version: "1.5.0"
 
+    - name: Set up gcloud CLI
+      uses: google-github-actions/setup-gcloud@v1
+
+    - name: Set up environment variables
+      id: setup-env
+      run: |
+        # Fetch secrets from GCP Secret Manager
+        GCP_PROJECT_ID=$(gcloud secrets versions access latest --secret=GCP_PROJECT_ID --project=the-dirty-launderer)
+        WORKLOAD_IDENTITY_PROVIDER=$(gcloud secrets versions access latest --secret=WORKLOAD_IDENTITY_PROVIDER --project=the-dirty-launderer)
+        SERVICE_ACCOUNT_EMAIL=$(gcloud secrets versions access latest --secret=SERVICE_ACCOUNT_EMAIL --project=the-dirty-launderer)
+        
+        # Set environment variables
+        echo "GCP_PROJECT_ID=$GCP_PROJECT_ID" >> $GITHUB_ENV
+        echo "WORKLOAD_IDENTITY_PROVIDER=$WORKLOAD_IDENTITY_PROVIDER" >> $GITHUB_ENV
+        echo "SERVICE_ACCOUNT_EMAIL=$SERVICE_ACCOUNT_EMAIL" >> $GITHUB_ENV
+        
+        # Store values for later use
+        echo "gcp_project_id=$GCP_PROJECT_ID" >> $GITHUB_OUTPUT
+        echo "workload_identity_provider=$WORKLOAD_IDENTITY_PROVIDER" >> $GITHUB_OUTPUT
+        echo "service_account_email=$SERVICE_ACCOUNT_EMAIL" >> $GITHUB_OUTPUT
+
     - name: Google Auth
       uses: google-github-actions/auth@v1
       with:
-        workload_identity_provider: 'projects/${{ vars.GCP_PROJECT_ID }}/locations/global/workloadIdentityPools/github-actions-pool-prod/providers/github-actions-provider-prod'
-        service_account: 'github-deployer@${{ vars.GCP_PROJECT_ID }}.iam.gserviceaccount.com'
+        workload_identity_provider: ${{ steps.setup-env.outputs.workload_identity_provider }}
+        service_account: ${{ steps.setup-env.outputs.service_account_email }}
         create_credentials_file: true
         export_environment_variables: true
 

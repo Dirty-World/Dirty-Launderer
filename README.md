@@ -37,21 +37,32 @@ A Telegram bot that cleans URLs by removing tracking parameters and proxying thr
 
 ### Architecture
 
-The bot uses a hybrid async/sync architecture:
+The bot uses a hybrid async/sync architecture with multiple Cloud Functions:
 
-1. **Main Function (Sync)**:
+1. **Main Bot Function (Sync)**:
    - Entry point for Cloud Functions
    - Handles HTTP requests
    - Creates event loop for async operations
    - Returns HTTP responses
+   - Dependencies: python-telegram-bot, flask, requests
 
-2. **Process Update (Async)**:
+2. **Webhook Check Function (Sync)**:
+   - Monitors webhook configuration
+   - Sends alerts for misconfigurations
+   - Dependencies: google-cloud-secret-manager, requests
+
+3. **Firestore Function (Sync)**:
+   - Manages database operations
+   - Handles data persistence
+   - Dependencies: google-cloud-firestore
+
+4. **Process Update (Async)**:
    - Processes Telegram updates
    - Handles message routing
    - Manages bot state
    - Returns operation results
 
-3. **Command Handlers (Async)**:
+5. **Command Handlers (Async)**:
    - Handle specific commands
    - Process user input
    - Send responses
@@ -124,6 +135,15 @@ Test categories:
 - `EXPECTED_WEBHOOK_URL`: Webhook URL for updates
 - `ALERT_CHAT_ID`: Admin chat for alerts
 - `HASH_SALT`: Salt for user ID hashing
+- `GCS_BUCKET_NAME`: GCS bucket for function source code
+- `PROJECT_ID`: Google Cloud project ID
+
+### Dependencies
+
+Each function has its own requirements file:
+- `requirements-main.txt`: Main bot function dependencies
+- `requirements-webhook.txt`: Webhook check function dependencies
+- `requirements-firestore.txt`: Firestore function dependencies
 
 ### Rate Limiting
 

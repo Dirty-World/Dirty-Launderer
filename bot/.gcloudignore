@@ -8,22 +8,42 @@ venv-prod-min/
 __pycache__/
 *.py[cod]
 *$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 
 # Test files
 tests/
+test_*.py
+*_test.py
+pytest.ini
 .coverage
-coverage.xml
-.pytest_cache/
+htmlcov/
 
 # Development files
-*.egg-info/
-.env
+*.env
 .env.*
 !.env.example
 
 # IDE files
-.vscode/
 .idea/
+.vscode/
+*.swp
+*.swo
 
 # Logs
 *.log
@@ -33,9 +53,7 @@ scripts/
 run_check.ps1
 
 # Distribution / packaging
-dist/
-build/
-htmlcov/
+coverage.xml
 
 # Git
 .git/
@@ -46,16 +64,22 @@ htmlcov/
 
 # Keep essential files
 !main.py
+!firestore_function.py
 !webhook_check_function.py
 !utils/
 !utils/__init__.py
 !utils/*.py
 !utils/config/
 !utils/config/*.json
-!requirements.txt
-!requirements-prod.txt
+!requirements-main.txt
+!requirements-firestore.txt
+!requirements-webhook.txt
+!requirements-common.txt
 
-# Ignore test files
+# Ignore all requirements-dev files
+requirements-dev*.txt
+
+# Ignore all test files
 **/test_*.py
 **/tests/
 **/pytest.ini
@@ -64,35 +88,20 @@ htmlcov/
 **/coverage.xml
 **/htmlcov/
 
-# Ignore development files
+# Ignore all development and cache files
 **/.git/
 **/.github/
 **/.gitignore
-**/.env
-**/.env.*
-**/venv/
-**/.venv/
+**/.env*
+**/venv*/
 **/env/
-**/.env/
 **/__pycache__/
-**/*.pyc
-**/*.pyo
-**/*.pyd
+**/*.py[cod]
+**/*.so
 **/.Python
 **/build/
-**/develop-eggs/
 **/dist/
-**/downloads/
-**/eggs/
-**/.eggs/
-**/lib/
-**/lib64/
-**/parts/
-**/sdist/
-**/var/
-**/wheels/
 **/*.egg-info/
-**/.installed.cfg
 **/*.egg
 **/.DS_Store
 **/.idea/
@@ -100,25 +109,15 @@ htmlcov/
 **/*.swp
 **/*.swo
 **/.pytest_cache/
-**/.coverage
-**/coverage.xml
-**/htmlcov/
 **/.tox/
 **/.nox/
 **/.hypothesis/
-**/.sage.py
-**/.env
-**/.venv
-**/ENV/
-**/env.bak/
-**/venv.bak/
-**/.spyderproject
-**/.spyproject
-**/.ropeproject
-**/site
 **/.mypy_cache/
-**/.dmypy.json
-**/dmypy.json
 **/.pyre/
 **/.pytype/
-**/cython_debug/ 
+**/cython_debug/
+
+# Ignore logs and temporary files
+**/*.log
+**/tmp/
+**/temp/ 

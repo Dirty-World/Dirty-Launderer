@@ -1,0 +1,12 @@
+# Development requirements for main function
+pytest==8.3.5
+pytest-cov==6.1.1
+pytest-asyncio==1.0.0
+pytest-mock==3.12.0
+psutil==7.0.0  # For resource monitoring in tests
+coverage>=7.5.0
+black==24.1.1
+flake8==7.0.0
+mypy==1.8.0
+types-requests==2.31.0.20240125
+python-telegram-bot-types==20.8 

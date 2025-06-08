@@ -1,3 +1,2 @@
-google-cloud-secret-manager>=2.16.4
-requests>=2.31.0
-functions-framework==3.5.0 
+# Webhook function specific dependencies
+# No additional dependencies beyond common ones 

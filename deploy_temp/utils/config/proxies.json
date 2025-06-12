@@ -1,0 +1,21 @@
+{
+  "version": "1.0.0",
+  "invidious": [
+    "https://invidious.snopyta.org",
+    "https://yewtu.be",
+    "https://invidious.kavin.rocks"
+  ],
+  "nitter": [
+    "https://nitter.net",
+    "https://nitter.privacydev.net",
+    "https://nitter.kavin.rocks"
+  ],
+  "libreddit": [
+    "https://libreddit.kavin.rocks",
+    "https://libreddit.privacydev.net"
+  ],
+  "scribe": [
+    "https://scribe.rip",
+    "https://scribe.privacydev.net"
+  ]
+}

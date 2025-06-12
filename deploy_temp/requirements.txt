@@ -1,0 +1,9 @@
+# Common dependencies shared across all functions
+functions-framework==3.5.0
+google-cloud-secret-manager>=2.18.0
+requests>=2.31.0 # Main function specific dependencies
+python-telegram-bot>=20.8
+flask>=3.0.0
+python-dotenv>=1.0.0
+google-cloud-firestore>=2.13.1
+google-cloud-secret-manager>=2.18.0 

@@ -1,7 +1,11 @@
 import os
 import asyncio
+import sys
 from telegram import Update, Bot
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
+
+# Import from parent directory
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from main import start, help_command, privacy_command, delete_command, handle_message
 
 async def test_bot():

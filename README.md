@@ -152,6 +152,90 @@ Each function has its own requirements file:
 - Per-user tracking
 - Auto-cleanup of old entries
 
+## Free Tier Optimization
+
+The Dirty Launderer is designed to run entirely within Google Cloud Platform's free tier limits. The following optimizations are implemented:
+
+### Code Optimizations
+
+- **Memory Usage**:
+  - Minimal data structures
+  - No persistent in-memory storage
+  - Explicit garbage collection
+  - Efficient string handling
+
+- **Processing Efficiency**:
+  - Asynchronous processing where beneficial
+  - Minimal dependencies
+  - Optimized URL parsing
+  - Efficient regex patterns
+
+- **Request Handling**:
+  - Rate limiting with caching
+  - Graceful degradation under load
+  - Short-lived connections
+  - Proper resource cleanup
+
+### Function Configuration
+
+- **Memory Allocation**: All functions use 128MB memory (minimum allowed)
+- **Timeout Settings**: Functions timeout after 60 seconds
+- **Cold Start Management**: Functions are designed to initialize quickly
+- **Function Count**: Limited to 3 functions to stay within free tier quotas
+- **Deployment Size**: Optimized deployment packages under 100MB
+- **Authentication**: Uses Workload Identity Federation instead of service account keys
+
+### Security Optimizations
+
+- **Workload Identity Federation**: Securely authenticates GitHub Actions to GCP without storing service account keys
+  - Uses OpenID Connect (OIDC) tokens from GitHub Actions
+  - Short-lived credentials instead of long-lived service account keys
+  - Repository-specific access control
+  - Automatic credential rotation
+- **Secret Management**: All secrets stored in Google Secret Manager, not GitHub Secrets
+- **Minimal Permissions**: Follows principle of least privilege for all service accounts
+- **No Long-lived Credentials**: Avoids storing long-lived credentials in CI/CD pipelines
+
+### CI/CD Integration
+
+The deployment workflow uses Workload Identity Federation for secure authentication:
+
+```yaml
+- name: Authenticate to Google Cloud
+  uses: google-github-actions/auth@v2
+  with:
+    workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+    service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+    project_id: ${{ env.PROJECT_ID }}
+```
+
+This approach:
+- Eliminates the need for storing service account keys in GitHub Secrets
+- Uses short-lived tokens that expire automatically
+- Provides fine-grained access control based on repository identity
+- Maintains complete audit trail of all authentications
+
+### Database Usage
+
+- **Firestore Operations**:
+  - Rate limiting with caching to minimize reads/writes
+  - Batch operations where possible
+  - Document updates only when necessary (not on every request)
+  - Time-based throttling of database operations
+
+### API Call Optimization
+
+- **Webhook Checks**: Limited to once per 30 minutes with adaptive frequency
+- **Error Alerts**: Rate limited to prevent excessive notifications
+- **Request Caching**: In-memory caching to reduce external API calls
+
+### Development Practices
+
+- **Test Locally**: Test functions locally before deployment
+- **Optimize Dependencies**: Minimize external dependencies
+- **Code Efficiency**: Optimize code for minimal resource usage
+- **Error Handling**: Graceful degradation when approaching limits
+
 ## License
 
-MIT License - see LICENSE.md for details 
+MIT License - see LICENSE.md for details

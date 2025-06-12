@@ -1,2 +1,3 @@
 # Firestore function specific dependencies
-google-cloud-firestore>=2.13.1 
+google-cloud-firestore>=2.13.1
+flask>=3.0.0

@@ -1,124 +1,101 @@
-name: Deploy Bot
+name: Deploy to Google Cloud Functions (Free Tier)
 
-# Trigger deployment on push to main or manual workflow_dispatch
 on:
   push:
     branches: [ main ]
   workflow_dispatch:
-    inputs:
-      environment:
-        description: 'Environment to deploy to'
-        required: true
-        default: 'dev'
-        type: choice
-        options:
-          - dev
-          - prod
 
-permissions:
-  contents: write
-  id-token: write
-  actions: write
-  repository-projects: write
+env:
+  PROJECT_ID: the-dirty-launderer
+  REGION: us-central1
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment || 'dev' }}
-
+    
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
-
+      uses: actions/checkout@v4
+    
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.11'
-
-    - name: Create deployment packages
-      run: |
-        # Create dist directory
-        mkdir -p dist/temp
-
-        # Main bot function
-        echo "Creating main bot function package..."
-        cp bot/main.py dist/temp/
-        cp bot/requirements-main.txt dist/temp/requirements.txt
-        cp -r bot/utils dist/temp/
-        cd dist/temp
-        pip install --no-cache-dir -r requirements.txt --target .
-        zip -r ../bot-source.zip .
-        cd ../..
-
-        # Firestore function
-        echo "Creating Firestore function package..."
-        rm -rf dist/temp/*
-        cp bot/firestore_function.py dist/temp/main.py
-        cp bot/requirements-firestore.txt dist/temp/requirements.txt
-        cd dist/temp
-        pip install --no-cache-dir -r requirements.txt --target .
-        zip -r ../firestore-function.zip .
-        cd ../..
-
-        # Webhook function
-        echo "Creating webhook function package..."
-        rm -rf dist/temp/*
-        cp bot/webhook_check_function.py dist/temp/main.py
-        cp bot/requirements-webhook.txt dist/temp/requirements.txt
-        cd dist/temp
-        pip install --no-cache-dir -r requirements.txt --target .
-        zip -r ../webhook-function.zip .
-        cd ../..
-
-        # Clean up
-        rm -rf dist/temp
-
-    - name: Set up Terraform
-      uses: hashicorp/setup-terraform@v2
+    
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
       with:
-        terraform_version: "1.5.0"
-
-    - name: Set up gcloud CLI
-      uses: google-github-actions/setup-gcloud@v1
-
-    - name: Set up environment variables
-      id: setup-env
+        workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+        service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+        project_id: ${{ env.PROJECT_ID }}
+    
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+    
+    - name: Fetch secrets from GCP Secret Manager
       run: |
-        # Fetch secrets from GCP Secret Manager
-        GCP_PROJECT_ID=$(gcloud secrets versions access latest --secret=GCP_PROJECT_ID --project=the-dirty-launderer)
-        WORKLOAD_IDENTITY_PROVIDER=$(gcloud secrets versions access latest --secret=WORKLOAD_IDENTITY_PROVIDER --project=the-dirty-launderer)
-        SERVICE_ACCOUNT_EMAIL=$(gcloud secrets versions access latest --secret=SERVICE_ACCOUNT_EMAIL --project=the-dirty-launderer)
-        
-        # Set environment variables
-        echo "GCP_PROJECT_ID=$GCP_PROJECT_ID" >> $GITHUB_ENV
-        echo "WORKLOAD_IDENTITY_PROVIDER=$WORKLOAD_IDENTITY_PROVIDER" >> $GITHUB_ENV
-        echo "SERVICE_ACCOUNT_EMAIL=$SERVICE_ACCOUNT_EMAIL" >> $GITHUB_ENV
-        
-        # Store values for later use
-        echo "gcp_project_id=$GCP_PROJECT_ID" >> $GITHUB_OUTPUT
-        echo "workload_identity_provider=$WORKLOAD_IDENTITY_PROVIDER" >> $GITHUB_OUTPUT
-        echo "service_account_email=$SERVICE_ACCOUNT_EMAIL" >> $GITHUB_OUTPUT
+        export TELEGRAM_TOKEN=$(gcloud secrets versions access latest --secret="TELEGRAM_TOKEN" --project="${{ env.PROJECT_ID }}")
+        export ADMIN_CHAT_ID=$(gcloud secrets versions access latest --secret="ADMIN_CHAT_ID" --project="${{ env.PROJECT_ID }}")
+        echo "TELEGRAM_TOKEN=$TELEGRAM_TOKEN" >> $GITHUB_ENV
+        echo "ADMIN_CHAT_ID=$ADMIN_CHAT_ID" >> $GITHUB_ENV
 
-    - name: Google Auth
-      uses: google-github-actions/auth@v1
-      with:
-        workload_identity_provider: ${{ steps.setup-env.outputs.workload_identity_provider }}
-        service_account: ${{ steps.setup-env.outputs.service_account_email }}
-        create_credentials_file: true
-        export_environment_variables: true
-
-    - name: Deploy Infrastructure
+    - name: Optimize for Free Tier
       run: |
-        cd terraform
-        terraform init
-        terraform plan
-        terraform apply -auto-approve
-
-    - name: Log Deployment
+        cd bot
+        python3 optimize_for_free_tier.py
+    
+    - name: Deploy Main Bot Function
       run: |
-        echo "Deployment completed at $(date)" >> deployment.log
-        echo "Environment: ${{ github.event.inputs.environment || 'dev' }}" >> deployment.log
-        echo "Source version: ${{ github.sha }}" >> deployment.log
-        echo "Bot source zip: bot-source.zip" >> deployment.log
-        echo "Firestore function zip: firestore-function.zip" >> deployment.log
-        echo "Webhook function zip: webhook-function.zip" >> deployment.log
+        cd bot
+        gcloud functions deploy dirty-launderer-bot \
+          --runtime python311 \
+          --trigger-http \
+          --allow-unauthenticated \
+          --memory 128MB \
+          --timeout 60s \
+          --entry-point main \
+          --source . \
+          --region ${{ env.REGION }} \
+          --project ${{ env.PROJECT_ID }} \
+          --set-env-vars TELEGRAM_TOKEN="${TELEGRAM_TOKEN}",ADMIN_CHAT_ID="${ADMIN_CHAT_ID}",FIRESTORE_FUNCTION_URL="https://${{ env.REGION }}-${{ env.PROJECT_ID }}.cloudfunctions.net/firestore-function",FUNCTION_URL="https://${{ env.REGION }}-${{ env.PROJECT_ID }}.cloudfunctions.net/dirty-launderer-bot"
+    
+    - name: Deploy Firestore Function
+      run: |
+        cd bot
+        gcloud functions deploy firestore-function \
+          --runtime python311 \
+          --trigger-http \
+          --memory 128MB \
+          --timeout 60s \
+          --entry-point main \
+          --source . \
+          --region ${{ env.REGION }} \
+          --project ${{ env.PROJECT_ID }} \
+          --set-env-vars TELEGRAM_TOKEN="${TELEGRAM_TOKEN}",ADMIN_CHAT_ID="${ADMIN_CHAT_ID}"
+    
+    - name: Deploy Webhook Check Function
+      run: |
+        cd bot
+        gcloud functions deploy webhook-check \
+          --runtime python311 \
+          --trigger-http \
+          --memory 128MB \
+          --timeout 60s \
+          --entry-point main \
+          --source . \
+          --region ${{ env.REGION }} \
+          --project ${{ env.PROJECT_ID }} \
+          --set-env-vars TELEGRAM_TOKEN="${TELEGRAM_TOKEN}",EXPECTED_WEBHOOK_URL="https://${{ env.REGION }}-${{ env.PROJECT_ID }}.cloudfunctions.net/dirty-launderer-bot",ALERT_CHAT_ID="${ADMIN_CHAT_ID}"
+    
+    - name: Set Telegram Webhook
+      run: |
+        curl -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/setWebhook" \
+          -H "Content-Type: application/json" \
+          -d '{"url": "https://${{ env.REGION }}-${{ env.PROJECT_ID }}.cloudfunctions.net/dirty-launderer-bot"}'
+    
+    - name: Log Deployment Success
+      run: |
+        echo "✅ Deployment completed successfully!"
+        echo "🎯 All functions optimized for Google Cloud Free Tier"
+        echo "💰 Estimated monthly cost: $0.00"
+        echo "🔗 Bot URL: https://${{ env.REGION }}-${{ env.PROJECT_ID }}.cloudfunctions.net/dirty-launderer-bot"
